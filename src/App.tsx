@@ -195,17 +195,51 @@ function App() {
                       <span style={{ 
                         color: res.action === 'upload' ? 'var(--accent-blue)' : 'var(--text-muted)',
                         fontWeight: res.action === 'upload' ? '600' : '400',
-                        textShadow: res.action === 'upload' ? '0 0 10px rgba(0, 210, 255, 0.3)' : 'none'
+                        textShadow: res.action === 'upload' ? '0 0 10px rgba(0, 210, 255, 0.3)' : 'none',
+                        display: 'flex',
+                        alignItems: 'center'
                       }}>
-                        <img src="/ps3.png" alt="PS3" style={{width: 16, height: 16, objectFit: 'contain', verticalAlign: 'text-bottom', marginRight: 8, filter: res.action === 'upload' ? 'none' : 'grayscale(1) opacity(0.5)'}} />
+                        <div style={{
+                          background: res.action === 'upload' ? 'rgba(0, 210, 255, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                          border: `1px solid ${res.action === 'upload' ? 'var(--accent-blue)' : 'rgba(255, 255, 255, 0.1)'}`,
+                          borderRadius: '6px',
+                          width: '32px',
+                          height: '24px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          marginRight: '10px',
+                          transition: 'all 0.3s ease',
+                          boxShadow: res.action === 'upload' ? '0 0 15px rgba(0, 210, 255, 0.2)' : 'none'
+                        }}>
+                          <img src="/ps3.png" alt="PS3" style={{width: 20, height: 20, objectFit: 'contain', filter: res.action === 'upload' ? 'none' : 'grayscale(1) opacity(0.5)'}} />
+                        </div>
                         PS3: {res.ps3Date ? new Date(res.ps3Date).toLocaleDateString() + ' ' + new Date(res.ps3Date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '-'}
                       </span>
                       <span style={{ 
                         color: res.action === 'download' ? '#c499ff' : 'var(--text-muted)',
                         fontWeight: res.action === 'download' ? '600' : '400',
-                        textShadow: res.action === 'download' ? '0 0 10px rgba(112, 0, 255, 0.3)' : 'none'
+                        textShadow: res.action === 'download' ? '0 0 10px rgba(112, 0, 255, 0.3)' : 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        marginLeft: '16px'
                       }}>
-                        ☁️ Cloud: {res.ncDate ? new Date(res.ncDate).toLocaleDateString() + ' ' + new Date(res.ncDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '-'}
+                        <div style={{
+                          background: res.action === 'download' ? 'rgba(112, 0, 255, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                          border: `1px solid ${res.action === 'download' ? '#c499ff' : 'rgba(255, 255, 255, 0.1)'}`,
+                          borderRadius: '6px',
+                          width: '32px',
+                          height: '24px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          marginRight: '10px',
+                          transition: 'all 0.3s ease',
+                          boxShadow: res.action === 'download' ? '0 0 15px rgba(112, 0, 255, 0.2)' : 'none'
+                        }}>
+                          ☁️
+                        </div>
+                        Cloud: {res.ncDate ? new Date(res.ncDate).toLocaleDateString() + ' ' + new Date(res.ncDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '-'}
                       </span>
                       <span style={{opacity: 0.3}}>{res.folderName}</span>
                     </div>
