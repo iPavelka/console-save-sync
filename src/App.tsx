@@ -200,19 +200,19 @@ function App() {
                         alignItems: 'center'
                       }}>
                         <div style={{
-                          background: res.action === 'upload' ? 'rgba(0, 210, 255, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-                          border: `1px solid ${res.action === 'upload' ? 'var(--accent-blue)' : 'rgba(255, 255, 255, 0.1)'}`,
-                          borderRadius: '6px',
-                          width: '32px',
-                          height: '24px',
+                          background: res.action === 'upload' ? 'rgba(0, 210, 255, 0.3)' : 'rgba(255, 255, 255, 0.1)',
+                          border: `1px solid ${res.action === 'upload' ? 'var(--accent-blue)' : 'rgba(255, 255, 255, 0.2)'}`,
+                          borderRadius: '8px',
+                          width: '40px',
+                          height: '30px',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          marginRight: '10px',
+                          marginRight: '12px',
                           transition: 'all 0.3s ease',
-                          boxShadow: res.action === 'upload' ? '0 0 15px rgba(0, 210, 255, 0.2)' : 'none'
+                          boxShadow: res.action === 'upload' ? '0 0 15px rgba(0, 210, 255, 0.3)' : 'none'
                         }}>
-                          <img src="/ps3.png" alt="PS3" style={{width: 20, height: 20, objectFit: 'contain', filter: res.action === 'upload' ? 'none' : 'grayscale(1) opacity(0.5)'}} />
+                          <img src="/ps3.png" alt="PS3" style={{width: 24, height: 24, objectFit: 'contain', filter: res.action === 'upload' ? 'none' : 'grayscale(1) brightness(1.5) opacity(0.7)'}} />
                         </div>
                         PS3: {res.ps3Date ? new Date(res.ps3Date).toLocaleDateString() + ' ' + new Date(res.ps3Date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '-'}
                       </span>
@@ -227,13 +227,13 @@ function App() {
                         <div style={{
                           background: res.action === 'download' ? 'rgba(112, 0, 255, 0.2)' : 'rgba(255, 255, 255, 0.05)',
                           border: `1px solid ${res.action === 'download' ? '#c499ff' : 'rgba(255, 255, 255, 0.1)'}`,
-                          borderRadius: '6px',
-                          width: '32px',
-                          height: '24px',
+                          borderRadius: '8px',
+                          width: '40px',
+                          height: '30px',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          marginRight: '10px',
+                          marginRight: '12px',
                           transition: 'all 0.3s ease',
                           boxShadow: res.action === 'download' ? '0 0 15px rgba(112, 0, 255, 0.2)' : 'none'
                         }}>
