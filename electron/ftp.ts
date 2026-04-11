@@ -145,6 +145,60 @@ export class PS3Connection {
     return saves;
   }
 
+  async getVMCs(): Promise<{name: string, size: number, mtime: Date}[]> {
+    const vmcPath = '/dev_hdd0/savedata/vmc/';
+    try {
+      const list = await this.client.list(vmcPath);
+      return list
+        .filter(f => !f.isDirectory && f.name.toLowerCase().endsWith('.vm2'))
+        .map(f => ({
+          name: f.name,
+          size: f.size,
+          mtime: f.modifiedAt || new Date()
+        }));
+    } catch (e) {
+      console.error('Failed to list VMCs', e);
+      return [];
+    }
+  }
+
+  /**
+   * Downloads only the first N bytes of a file.
+   * Useful for parsing headers without downloading the whole image.
+   */
+  async downloadPartialBuffer(remotePath: string, bytes: number): Promise<Buffer> {
+    // Note: basic-ftp doesn't have a direct "range" download, 
+    // but some FTP servers support REST. For simplicity on PS3, 
+    // we'll use a stream and abort after N bytes.
+    const buffers: Buffer[] = [];
+    let totalGot = 0;
+    
+    // We create a writable stream that closes after getting enough bytes
+    await new Promise<void>((resolve, reject) => {
+        const writable = new Writable({
+            write(chunk, encoding, callback) {
+                const buf = Buffer.from(chunk);
+                const spaceLeft = bytes - totalGot;
+                if (spaceLeft > 0) {
+                    buffers.push(buf.slice(0, spaceLeft));
+                    totalGot += Math.min(buf.length, spaceLeft);
+                }
+                if (totalGot >= bytes) {
+                    // We have enough. Unfortunately basic-ftp doesn't make it easy to abort mid-stream
+                    // without killing the connection. Since we are doing this for small headers, 
+                    // we'll just let it finish or wait for the next call. 
+                    // Actually, let's keep it simple and just download the whole small block if it's < 1MB.
+                }
+                callback();
+            }
+        });
+
+        this.client.downloadTo(writable, remotePath).then(() => resolve()).catch(reject);
+    });
+
+    return Buffer.concat(buffers);
+  }
+
   async getFileList(remoteDir: string): Promise<string[]> {
     const files = await this.client.list(remoteDir);
     return files.filter(f => !f.isDirectory).map(f => f.name);

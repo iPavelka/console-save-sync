@@ -93,6 +93,27 @@ app.on('ready', () => {
     }
   });
 
+  ipcMain.handle('get-ps2-inventory', async () => {
+    try {
+      const sync = new SyncService();
+      await sync.init();
+      return { success: true, data: await sync.getPS2Inventory() };
+    } catch (e: any) {
+      return { success: false, error: e.message };
+    }
+  });
+
+  ipcMain.handle('perform-vmc-sync', async (event, action, fileName) => {
+    try {
+      const sync = new SyncService();
+      await sync.init();
+      await sync.performVMCSync(action, fileName);
+      return { success: true };
+    } catch (e: any) {
+      return { success: false, error: e.message };
+    }
+  });
+
   ipcMain.handle('perform-sync', async (event, action, profileId, folderName) => {
     try {
       const sync = new SyncService();

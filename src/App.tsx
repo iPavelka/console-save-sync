@@ -18,6 +18,15 @@ type SyncItem = {
     _loading?: boolean;
 };
 
+type PS2VMCInfo = {
+    fileName: string;
+    size: number;
+    mtime: Date;
+    games: {serial: string, title: string, icon: string}[];
+    action: 'upload' | 'download' | 'synced';
+    _loading?: boolean;
+};
+
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [settings, setSettings] = useState({ ps3Ip: '', ncUrl: '', ncUser: '', ncPass: '', ps3ProfileId: '', cloudPersona: '' });
@@ -25,6 +34,8 @@ function App() {
   const [availableProfiles, setAvailableProfiles] = useState<{id: string, name: string}[]>([]);
   const [fetchingProfiles, setFetchingProfiles] = useState(false);
   const [scanResults, setScanResults] = useState<SyncItem[]>([]);
+  const [ps2Inventory, setPs2Inventory] = useState<PS2VMCInfo[]>([]);
+  const [fetchingPS2, setFetchingPS2] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
   // Load settings on mount
@@ -42,9 +53,24 @@ function App() {
       
       if (loaded.ps3Ip && loaded.ncUrl && loaded.ncUser) {
         handleScanWithSettings(loaded);
+        fetchPS2Inventory();
       }
     });
   }, []);
+
+  const fetchPS2Inventory = async () => {
+    if (!settings.ps3Ip) return;
+    setFetchingPS2(true);
+    try {
+      const result = await window.electronAPI.getPS2Inventory();
+      if (result.success) {
+        setPs2Inventory(result.data);
+      }
+    } catch (e) {
+      console.error('Failed to fetch PS2 inventory', e);
+    }
+    setFetchingPS2(false);
+  };
 
   const fetchProfiles = async () => {
     if (!settings.ps3Ip) {
@@ -120,6 +146,21 @@ function App() {
     }
   };
 
+  const handleVMCSync = async (vmc: PS2VMCInfo) => {
+    setPs2Inventory(prev => prev.map(v => v.fileName === vmc.fileName ? { ...v, _loading: true } : v));
+    try {
+      const result = await window.electronAPI.performVMCSync(vmc.action, vmc.fileName);
+      if (result.success) {
+        setPs2Inventory(prev => prev.map(v => v.fileName === vmc.fileName ? { ...v, action: 'synced', _loading: false } : v));
+      } else {
+        setErrorMsg('Chyba při přenosu VMC: ' + result.error);
+        setPs2Inventory(prev => prev.map(v => v.fileName === vmc.fileName ? { ...v, _loading: false } : v));
+      }
+    } catch (e: any) {
+      setErrorMsg('Chyba: ' + e.message);
+    }
+  };
+
   const uploadCount = scanResults.filter(r => r.action === 'upload').length;
   const downloadCount = scanResults.filter(r => r.action === 'download').length;
 
@@ -177,6 +218,12 @@ function App() {
           </div>
           <span className="category-label">Synchronizace</span>
         </div>
+        <div className={`category ${activeTab === 'ps2' ? 'active' : ''}`} onClick={() => setActiveTab('ps2')}>
+          <div className="category-icon" style={{borderColor: activeTab === 'ps2' ? '#3366ff' : 'var(--glass-border)', boxShadow: activeTab === 'ps2' ? '0 0 20px rgba(51, 102, 255, 0.4)' : 'none'}}>
+            <span style={{fontSize: '1.4rem', fontWeight: 900, color: '#3366ff'}}>2</span>
+          </div>
+          <span className="category-label">PS2 Hub</span>
+        </div>
         <div className={`category ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
           <div className="category-icon">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -203,6 +250,89 @@ function App() {
               {loading ? 'Skenuji...' : 'Skenovat změny'}
             </button>
             {errorMsg && <p style={{color: '#ff3366', marginTop: 20}}>{errorMsg}</p>}
+          </div>
+        )}
+
+        {activeTab === 'ps2' && (
+          <div className="tab-content" style={{animation: 'slideIn 0.4s ease', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0}}>
+            <h1 className="section-title">PS2 Hub & Memory Cards</h1>
+            <div className="widget-row">
+              <div className="widget" style={{background: 'rgba(51, 102, 255, 0.05)', borderColor: 'rgba(51, 102, 255, 0.2)'}}>
+                <h3>Nalezené karty (.VM2)</h3>
+                <h1>{ps2Inventory.length}</h1>
+              </div>
+              <div className="widget">
+                 <h3>Hry na kartách</h3>
+                 <h1>{ps2Inventory.reduce((acc, v) => acc + v.games.length, 0)}</h1>
+              </div>
+            </div>
+            
+            <button onClick={fetchPS2Inventory} disabled={fetchingPS2} style={{alignSelf: 'flex-start', padding: '12px 24px', background: 'var(--glass)', border: '1px solid var(--glass-border)', color: '#fff', borderRadius: '8px', cursor: 'pointer', marginBottom: 20}}>
+               {fetchingPS2 ? 'Skenuji karty...' : 'Obnovit seznam karet'}
+            </button>
+
+            <div className="sync-list">
+              {ps2Inventory.length === 0 && !fetchingPS2 && (
+                <div style={{padding: 40, textAlign: 'center', opacity: 0.5}}>Nebyly nalezeny žádné virtuální paměťové karty.</div>
+              )}
+              {ps2Inventory.map(vmc => (
+                <div key={vmc.fileName} style={{
+                  background: 'rgba(255,255,255,0.03)',
+                  borderRadius: '16px',
+                  padding: '24px',
+                  marginBottom: '20px',
+                  border: '1px solid var(--glass-border)'
+                }}>
+                  <div style={{display: 'flex', alignItems: 'center', gap: '20px', marginBottom: vmc.games.length > 0 ? '20px' : '0'}}>
+                    <div style={{
+                       width: '60px', height: '80px', background: '#222', borderRadius: '4px',
+                       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                       border: '2px solid #555', position: 'relative'
+                    }}>
+                       <div style={{fontSize: '0.6rem', color: '#888', marginBottom: 2}}>MEMORY</div>
+                       <div style={{fontSize: '0.6rem', color: '#888'}}>CARD</div>
+                       <div style={{fontSize: '0.8rem', color: '#ccc', fontWeight: 800, marginTop: 4}}>{vmc.size > 1024*1024*8 ? '64MB' : '8MB'}</div>
+                       <div style={{position: 'absolute', bottom: 4, width: '80%', height: '2px', background: '#333'}}></div>
+                    </div>
+                    <div style={{flex: 1}}>
+                      <h4 style={{fontSize: '1.4rem', marginBottom: 4}}>{vmc.fileName}</h4>
+                      <p style={{fontSize: '0.8rem', color: 'var(--text-muted)'}}>
+                        Velikost: {(vmc.size / 1024 / 1024).toFixed(1)} MB | {vmc.games.length} her nalezeno
+                      </p>
+                    </div>
+                    <div className="sync-actions">
+                      <button onClick={() => handleVMCSync(vmc)} style={{
+                        background: vmc.action === 'synced' ? 'rgba(0, 230, 118, 0.2)' : 'var(--glass)',
+                        borderColor: vmc.action === 'synced' ? '#00e676' : 'var(--glass-border)'
+                      }}>
+                        {vmc._loading ? 'Přenáším...' : vmc.action === 'synced' ? 'Zálohováno' : 'Zálohovat kartu'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {vmc.games.length > 0 && (
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+                      gap: '16px',
+                      padding: '16px',
+                      background: 'rgba(0,0,0,0.2)',
+                      borderRadius: '12px'
+                    }}>
+                      {vmc.games.map(game => (
+                        <div key={game.serial} style={{textAlign: 'center', cursor: 'pointer'}} title={game.serial}>
+                           <img src={game.icon} alt={game.title} style={{
+                             width: '80px', height: '110px', objectFit: 'cover', borderRadius: '4px',
+                             boxShadow: '0 4px 10px rgba(0,0,0,0.4)', marginBottom: '8px'
+                           }} />
+                           <div style={{fontSize: '0.7rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>{game.title}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

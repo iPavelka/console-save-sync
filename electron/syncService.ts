@@ -1,6 +1,8 @@
 import { PS3Connection, PS3SaveInfo } from './ftp.js';
 import { NextcloudConnection, NCCloudSave } from './webdav.js';
 import store from './store.js';
+import { parseVMC } from './vm2Parser.js';
+import { identifyPS2Game } from './ps2Db.js';
 
 export type DeltaAction = 'upload' | 'download' | 'synced';
 
@@ -12,6 +14,14 @@ export type SyncItem = {
     ncDate: Date | null;
     profileId: string;
     iconBase64?: string;
+};
+
+export type PS2VMCInfo = {
+    fileName: string;
+    size: number;
+    mtime: Date;
+    games: {serial: string, title: string, icon: string}[];
+    action: DeltaAction;
 };
 
 export class SyncService {
@@ -82,7 +92,7 @@ export class SyncService {
         }
 
         // 2. Process Nextcloud saves and compare
-        await Promise.all(ncSaves.map(async (cloud) => {
+        await Promise.all(ncSaves.map(async (cloud: any) => {
             let trueDate = cloud.dateModified;
             
             // Re-discover original PS3 date from cloud metadata
@@ -92,17 +102,14 @@ export class SyncService {
                 if (meta.mtime) {
                     trueDate = new Date(meta.mtime);
                 }
-            } catch(e) {
-                // Ignore, file doesn't exist on older uploads
-            }
+            } catch(e) { /* Ignore */ }
 
             const existing = deltas.get(cloud.folderName);
             if (existing && existing.ps3Date) {
                 existing.ncDate = trueDate;
                 
-                // Compare Dates
                 const diff = Math.abs(trueDate.getTime() - existing.ps3Date.getTime());
-                if (diff < 1000 * 60) { // Tolerace 1 minuta
+                if (diff < 1000 * 60) {
                     existing.action = 'synced';
                 } else if (trueDate.getTime() > existing.ps3Date.getTime()) {
                     existing.action = 'download';
@@ -112,7 +119,6 @@ export class SyncService {
             } else {
                 let downloadedIcon = undefined;
                 try {
-                    // Only download icon if it's potentially needed (not on PS3)
                     const iconBuf = await this.nc.downloadFileToBuffer(`/PS3_Saves/${cloudPersona}/${cloud.folderName}/ICON0.PNG`);
                     downloadedIcon = `data:image/png;base64,${iconBuf.toString('base64')}`;
                 } catch (e) {}
@@ -132,59 +138,111 @@ export class SyncService {
         return Array.from(deltas.values());
     }
 
-    async performSync(action: DeltaAction, profileId: string, folderName: string): Promise<void> {
-        if (action === 'synced') return;
-
+    async getPS2Inventory(): Promise<PS2VMCInfo[]> {
         const ip = store.get('ps3Ip');
         if (!ip) throw new Error('No PS3 IP Address configured');
 
+        await this.ftp.connect(ip);
+        const vmcFiles = await this.ftp.getVMCs();
+        const persona = store.get('cloudPersona') as string || 'Unknown';
+
+        const inventory: PS2VMCInfo[] = [];
+
+        for (const file of vmcFiles) {
+            try {
+                // Pick first 512KB to parse root dir
+                const header = await this.ftp.downloadPartialBuffer(`/dev_hdd0/savedata/vmc/${file.name}`, 512 * 1024);
+                const rawEntries = parseVMC(header);
+                
+                const games = rawEntries
+                    .filter(e => e.isDir && e.name.match(/^[A-Z]{3,4}-?[0-9]{5}/))
+                    .map(e => {
+                        const info = identifyPS2Game(e.name);
+                        return { serial: e.name, title: info.title, icon: info.icon };
+                    });
+
+                let action: DeltaAction = 'upload';
+                try {
+                    const cloudFiles = await this.nc.getFileList(`/PS2_VMC/${persona}`);
+                    if (cloudFiles.includes(file.name)) {
+                        action = 'synced';
+                    }
+                } catch (e) { }
+
+                inventory.push({
+                    fileName: file.name,
+                    size: file.size,
+                    mtime: file.mtime,
+                    games,
+                    action
+                });
+            } catch (err) {
+                console.error(`Chyba při čtení VMC ${file.name}:`, err);
+            }
+        }
+
+        await this.ftp.disconnect();
+        return inventory;
+    }
+
+    async performSync(action: DeltaAction, profileId: string, folderName: string): Promise<void> {
+        if (action === 'synced') return;
+        const ip = store.get('ps3Ip');
+        if (!ip) throw new Error('No PS3 IP Address configured');
         await this.ftp.connect(ip);
         
         try {
             const cloudPersona = this.getCloudPersona(profileId);
             if (action === 'upload') {
-                // From PS3 to Cloud
                 const ps3Dir = `/dev_hdd0/home/${profileId}/savedata/${folderName}`;
                 const cloudDir = `/PS3_Saves/${cloudPersona}/${folderName}`;
-
                 await this.nc.createDir(cloudDir);
-
                 const files = await this.ftp.getFileList(ps3Dir);
                 for (const fileName of files) {
                     const data = await this.ftp.downloadFileToBuffer(`${ps3Dir}/${fileName}`);
                     await this.nc.uploadFileFromBuffer(`${cloudDir}/${fileName}`, data);
                 }
-
-                // Upload metadata to preserve original PS3 mtime
                 const ps3Original = await this.ftp.getSaves(profileId);
-                const originalSave = ps3Original.find(s => s.folderName === folderName);
+                const originalSave = ps3Original.find((s: any) => s.folderName === folderName);
                 if (originalSave) {
                     const metaObj = { mtime: originalSave.dateModified.getTime() };
                     await this.nc.uploadFileFromBuffer(`${cloudDir}/sync-meta.json`, Buffer.from(JSON.stringify(metaObj)));
                 }
-
             } else if (action === 'download') {
-                // From Cloud to PS3
                 const ps3Dir = `/dev_hdd0/home/${profileId}/savedata/${folderName}`;
                 const cloudDir = `/PS3_Saves/${cloudPersona}/${folderName}`;
-
                 await this.ftp.createDir(ps3Dir);
-
                 const files = await this.nc.getFileList(cloudDir);
                 for (const fileName of files) {
                     if (fileName === 'sync-meta.json') continue;
                     const data = await this.nc.downloadFileToBuffer(`${cloudDir}/${fileName}`);
                     await this.ftp.uploadFileFromBuffer(`${ps3Dir}/${fileName}`, data);
                 }
-
-                // After download, PS3 files have "now" as date. 
-                // We must update the cloud metadata to match this "now" to avoid immediate re-upload suggestion.
                 const ps3Current = await this.ftp.getSaves(profileId);
-                const updatedSave = ps3Current.find(s => s.folderName === folderName);
+                const updatedSave = ps3Current.find((s: any) => s.folderName === folderName);
                 if (updatedSave) {
                     const metaObj = { mtime: updatedSave.dateModified.getTime() };
                     await this.nc.uploadFileFromBuffer(`${cloudDir}/sync-meta.json`, Buffer.from(JSON.stringify(metaObj)));
                 }
+            }
+        } finally {
+            await this.ftp.disconnect();
+        }
+    }
+
+    async performVMCSync(action: DeltaAction, fileName: string): Promise<void> {
+        const ip = store.get('ps3Ip');
+        if (!ip) throw new Error('No PS3 IP Address configured');
+        const persona = store.get('cloudPersona') as string || 'Unknown';
+        await this.ftp.connect(ip);
+        try {
+            if (action === 'upload') {
+                const data = await this.ftp.downloadFileToBuffer(`/dev_hdd0/savedata/vmc/${fileName}`);
+                await this.nc.createDir(`/PS2_VMC/${persona}`);
+                await this.nc.uploadFileFromBuffer(`/PS2_VMC/${persona}/${fileName}`, data);
+            } else if (action === 'download') {
+                const data = await this.nc.downloadFileToBuffer(`/PS2_VMC/${persona}/${fileName}`);
+                await this.ftp.uploadFileFromBuffer(`/dev_hdd0/savedata/vmc/${fileName}`, data);
             }
         } finally {
             await this.ftp.disconnect();

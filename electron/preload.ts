@@ -7,4 +7,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   scanDeltas: (profileId: string) => ipcRenderer.invoke('scan-deltas', profileId),
   performSync: (action: string, profileId: string, folderName: string) => ipcRenderer.invoke('perform-sync', action, profileId, folderName),
   getPS3Profiles: () => ipcRenderer.invoke('get-ps3-profiles'),
+  getPS2Inventory: () => ipcRenderer.invoke('get-ps2-inventory'),
+  performVMCSync: (action: string, fileName: string) => ipcRenderer.invoke('perform-vmc-sync', action, fileName),
 });
