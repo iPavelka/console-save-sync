@@ -15,6 +15,7 @@ type SyncItem = {
     ncDate: Date | null;
     profileId: string;
     iconBase64?: string;
+    _loading?: boolean;
 };
 
 function App() {
@@ -24,7 +25,7 @@ function App() {
   const [scanResults, setScanResults] = useState<SyncItem[]>([]);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Load setttings on mount
+  // Load settings on mount
   useEffect(() => {
     window.electronAPI.getSettings().then((res: any) => {
       const loaded = {
@@ -43,12 +44,12 @@ function App() {
 
   const saveSettings = () => {
     window.electronAPI.saveSettings(settings);
-    setActiveTab('dashboard'); // return to dash
+    setActiveTab('dashboard');
   }
 
   const handleScanWithSettings = async (currentSettings: any) => {
     if (!currentSettings.ps3Ip || !currentSettings.ncUrl) {
-      setErrorMsg('Nastavte prosím IP adresu a Nextcloud URL v Nastavení.');
+      setErrorMsg('Nastavte prosím IP adresu a Nextcloud v sekci Settings.');
       return;
     }
     
@@ -59,7 +60,7 @@ function App() {
       if (result.success) {
         setScanResults(result.data);
       } else {
-        setErrorMsg('Chyba komunikace s PS3 nebo Nextcloudem: ' + result.error);
+        setErrorMsg('Chyba spojení: ' + result.error);
       }
     } catch (err: any) {
       setErrorMsg('Kritická chyba: ' + err.message);
@@ -69,168 +70,159 @@ function App() {
 
   const handleScan = () => handleScanWithSettings(settings);
 
-    const uploadCount = scanResults.filter(r => r.action === 'upload').length;
-    const downloadCount = scanResults.filter(r => r.action === 'download').length;
-  
-    const handleSyncItem = async (item: SyncItem) => {
-      // Mark as loading visually
-      setScanResults(prev => prev.map(r => r.folderName === item.folderName ? { ...r, action: 'synced', _loading: true } as any : r));
-      try {
-        const result = await window.electronAPI.performSync(item.action, item.profileId, item.folderName);
-        if (result.success) {
-          // Success
-          setScanResults(prev => prev.map(r => r.folderName === item.folderName ? { ...r, action: 'synced', _loading: false } as any : r));
-        } else {
-          setErrorMsg('Chyba při přenosu dat: ' + result.error);
-          // Revert on error
-          setScanResults(prev => prev.map(r => r.folderName === item.folderName ? { ...r, action: item.action, _loading: false } as any : r));
-        }
-      } catch (e: any) {
-         setErrorMsg('Kritická chyba: ' + e.message);
+  const handleSyncItem = async (item: SyncItem) => {
+    setScanResults(prev => prev.map(r => r.folderName === item.folderName ? { ...r, _loading: true } : r));
+    try {
+      const result = await window.electronAPI.performSync(item.action, item.profileId, item.folderName);
+      if (result.success) {
+        setScanResults(prev => prev.map(r => r.folderName === item.folderName ? { ...r, action: 'synced', _loading: false } : r));
+      } else {
+        setErrorMsg('Chyba při přenosu: ' + result.error);
+        setScanResults(prev => prev.map(r => r.folderName === item.folderName ? { ...r, _loading: false } : r));
       }
-    };
-  
-    return (
-      <div className="app-container">
-        <aside className="sidebar glass-panel">
-          <div className="brand">
-            Console Save Sync
+    } catch (e: any) {
+       setErrorMsg('Chyba: ' + e.message);
+    }
+  };
+
+  const uploadCount = scanResults.filter(r => r.action === 'upload').length;
+  const downloadCount = scanResults.filter(r => r.action === 'download').length;
+
+  return (
+    <div className="app-container">
+      {/* --- BACKGROUND WAVE ENGINE --- */}
+      <div className="background-container">
+        <svg className="waves" viewBox="0 0 100 100" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="glowGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="var(--accent-blue)" stopOpacity="0.8" />
+              <stop offset="100%" stopColor="var(--accent-purple)" stopOpacity="0.8" />
+            </linearGradient>
+          </defs>
+          <path className="wave-path" d="M0,50 Q25,30 50,50 T100,50 T150,50 T200,50" />
+          <path className="wave-path" d="M0,60 Q25,40 50,60 T100,60 T150,60" />
+        </svg>
+      </div>
+
+      <header className="top-bar">
+        <div className="ps3-logo">
+           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 14v4a2 2 0 0 0 2 2h4l4-8V6a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2z"/><path d="M12 4v4"/></svg>
+           PLAYSTATION 3 <span style={{fontWeight: 300, fontSize: '1rem', opacity: 0.6, marginLeft: 10}}>| Sync Engine</span>
+        </div>
+        <div className="status-bar">
+           <div className="status-item">
+             <span className={`dot ${settings.ps3Ip ? 'online' : ''}`}></span>
+             PS3: {settings.ps3Ip || 'Offline'}
+           </div>
+           <div className="status-item" style={{marginLeft: 20}}>
+             <span className={`dot ${settings.ncUrl ? 'online' : ''}`}></span>
+             Cloud: {settings.ncUser || 'Disconnected'}
+           </div>
+        </div>
+      </header>
+
+      <nav className="xmb-nav">
+        <div className={`category ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>
+          <div className="category-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg>
           </div>
-          
-          <div className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
-            Dashboard
+          <span className="category-label">Přehled</span>
+        </div>
+        <div className={`category ${activeTab === 'sync' ? 'active' : ''}`} onClick={() => setActiveTab('sync')}>
+          <div className="category-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
           </div>
-          <div className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-            Nastavení
+          <span className="category-label">Synchronizace</span>
+        </div>
+        <div className={`category ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
+          <div className="category-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           </div>
-          
-          <div style={{marginTop: 'auto'}}>
-            <div className="status">
-              <div className={`status-dot ${settings.ps3Ip ? 'online' : ''}`}></div>
-              PS3: {settings.ps3Ip || 'Nenastaveno'}
-            </div>
-            <div className="status" style={{marginTop: 8}}>
-              <div className={`status-dot ${settings.ncUrl ? 'online' : ''}`}></div>
-              Cloud: {settings.ncUser ? settings.ncUser : 'Nenastaveno'}
-            </div>
-          </div>
-        </aside>
-  
-        <main className="main-content">
-          {activeTab === 'dashboard' ? (
-            <>
-              <div className="header">
-                <div>
-                  <h1>Přehled Synchronizace</h1>
-                  <p>Spravuj své PS3 savy a zálohuj je do bezpečí</p>
-                </div>
-                <button onClick={handleScan} disabled={loading}>
-                  {loading ? 'Pracuji...' : (
-                    <>
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.59-9.21l-5.69-1.56"/></svg>
-                      Skenovat změny
-                    </>
-                  )}
-                </button>
+          <span className="category-label">Nastavení</span>
+        </div>
+      </nav>
+
+      <main className="xmb-content">
+        {activeTab === 'dashboard' && (
+          <div className="tab-content" style={{animation: 'slideIn 0.4s ease'}}>
+            <h1 className="section-title">Vítej zpět</h1>
+            <div className="widget-row">
+              <div className="widget">
+                <h3>K nahrání (PS3)</h3>
+                <h1>{uploadCount}</h1>
               </div>
-  
-              {errorMsg && (
-                <div className="glass-panel" style={{borderLeft: '4px solid var(--danger-color)', color: 'var(--danger-color)'}}>
-                  {errorMsg}
-                </div>
+              <div className="widget">
+                <h3>Ke stažení (Cloud)</h3>
+                <h1>{downloadCount}</h1>
+              </div>
+            </div>
+            <button onClick={handleScan} disabled={loading} style={{padding: '16px 32px', fontSize: '1rem', background: 'var(--accent-blue)', color: '#000', borderRadius: '12px', border: 'none', fontWeight: 700, cursor: 'pointer'}}>
+              {loading ? 'Skenuji...' : 'Skenovat změny'}
+            </button>
+            {errorMsg && <p style={{color: '#ff3366', marginTop: 20}}>{errorMsg}</p>}
+          </div>
+        )}
+
+        {activeTab === 'sync' && (
+          <div className="tab-content" style={{animation: 'slideIn 0.4s ease', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0}}>
+            <h1 className="section-title">Správce Savů</h1>
+            <div className="sync-list">
+              {scanResults.length === 0 && !loading && (
+                <div style={{padding: 40, textAlign: 'center', opacity: 0.5}}>Vše je synchronizováno nebo neproběhl sken.</div>
               )}
-  
-              <div className="widget-grid">
-                 <div className="widget glass-panel">
-                   <h3>Nové na PS3</h3>
-                   <h1 style={{fontSize: '3rem', color: 'var(--accent-color)'}}>{uploadCount}</h1>
-                   <p style={{color: 'var(--text-secondary)'}}>Savy připravené k záloze do Nexcloudu.</p>
-                 </div>
-                 
-                 <div className="widget glass-panel">
-                   <h3>Nové v Cloudu</h3>
-                   <h1 style={{fontSize: '3rem', color: 'var(--success-color)'}}>{downloadCount}</h1>
-                   <p style={{color: 'var(--text-secondary)'}}>Savy z jiné konzole k vložení do PS3.</p>
-                 </div>
-              </div>
-  
-              <div className="widget glass-panel" style={{flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0}}>
-                <h3>Nalezené diference (Deltas)</h3>
-                
-                <div className="sync-list" style={{overflowY: 'auto', flex: 1, paddingRight: 8}}>
-                   {scanResults.length === 0 && !loading && (
-                     <p style={{color: 'var(--text-secondary)'}}>Zatím nebyly provedeny žádné skeny, nebo jsou všechny savy synchronizované.</p>
-                   )}
-                   {scanResults.map(res => (
-                     <div className="sync-item" key={res.folderName} style={{display: 'flex', alignItems: 'center'}}>
-                       {res.iconBase64 && (
-                         <img src={res.iconBase64} alt="icon" style={{width: 64, height: 64, borderRadius: 8, marginRight: 16, objectFit: 'cover'}} />
-                       )}
-                       <div className="sync-info" style={{flex: 1}}>
-                         <h4>{res.gameTitle} 
-                           {res.action === 'upload' && <span className="badge upload" style={{marginLeft: 8}}>Upload do Cloudu</span>}
-                           {res.action === 'download' && <span className="badge download" style={{marginLeft: 8}}>Download do PS3</span>}
-                           {res.action === 'synced' && <span className="badge" style={{marginLeft: 8, background: 'rgba(255,255,255,0.1)'}}>Zálohováno</span>}
-                         </h4>
-                         <div className="sync-meta" style={{display: 'flex', gap: '24px', marginTop: '8px', alignItems: 'center'}}>
-                           <span style={{background: 'rgba(0,0,0,0.3)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.05)'}}>
-                             📁 {res.folderName}
-                           </span>
-                           
-                           <div style={{display: 'flex', gap: '24px', borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: '24px'}}>
-                             <span style={{
-                               color: res.action === 'upload' ? 'var(--accent-color)' : 'var(--text-secondary)',
-                               fontWeight: res.action === 'upload' ? 600 : 400
-                             }}>
-                               🕹️ PS3: {res.ps3Date ? new Date(res.ps3Date).toLocaleString() : <span style={{opacity: 0.5}}>- Chybí -</span>}
-                             </span>
-                             <span style={{
-                               color: res.action === 'download' ? 'var(--success-color)' : 'var(--text-secondary)',
-                               fontWeight: res.action === 'download' ? 600 : 400
-                             }}>
-                               ☁️ Cloud: {res.ncDate ? new Date(res.ncDate).toLocaleString() : <span style={{opacity: 0.5}}>- Chybí -</span>}
-                             </span>
-                           </div>
-                         </div>
-                       </div>
-                       <div className="sync-actions">
-                         {res.action === 'upload' && <button onClick={() => handleSyncItem(res)}>Nahrát Zálohu</button>}
-                         {res.action === 'download' && <button className="secondary" onClick={() => handleSyncItem(res)}>Stáhnout do PS3</button>}
-                         {res as any && (res as any)._loading && <span style={{marginLeft: 10}}>Přenáším data...</span>}
-                       </div>
-                     </div>
-                   ))}
-                   
+              {scanResults.map(res => (
+                <div className="sync-item" key={res.folderName}>
+                  {res.iconBase64 ? (
+                    <img src={res.iconBase64} alt="icon" className="game-icon" />
+                  ) : (
+                    <div className="game-icon" style={{background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>🎮</div>
+                  )}
+                  <div className="sync-info">
+                    <h4>{res.gameTitle || res.folderName} 
+                      {res.action === 'upload' && <span className="badge upload" style={{marginLeft: 10}}>K záloze</span>}
+                      {res.action === 'download' && <span className="badge download" style={{marginLeft: 10}}>Ke stažení</span>}
+                      {res.action === 'synced' && <span className="badge synced" style={{marginLeft: 10}}>OK</span>}
+                    </h4>
+                    <div className="sync-meta">
+                      <span>🕹️ {res.ps3Date ? new Date(res.ps3Date).toLocaleDateString() : '-'}</span>
+                      <span>☁️ {res.ncDate ? new Date(res.ncDate).toLocaleDateString() : '-'}</span>
+                      <span style={{opacity: 0.4}}>{res.folderName}</span>
+                    </div>
+                  </div>
+                  <div className="sync-actions">
+                    {res.action === 'upload' && <button onClick={() => handleSyncItem(res)}>{res._loading ? 'Přenáším...' : 'Nahrát'}</button>}
+                    {res.action === 'download' && <button onClick={() => handleSyncItem(res)}>{res._loading ? 'Přenáším...' : 'Stáhnout'}</button>}
+                  </div>
                 </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'settings' && (
+          <div className="tab-content" style={{animation: 'slideIn 0.4s ease'}}>
+            <h1 className="section-title">Služby</h1>
+            <div className="settings-panel widget">
+              <div className="input-field">
+                <label>IP Adresa PS3</label>
+                <input type="text" value={settings.ps3Ip} onChange={e => setSettings({...settings, ps3Ip: e.target.value})} placeholder="192.168.1.xxx"/>
               </div>
-          </>
-        ) : (
-          <div className="widget glass-panel" style={{maxWidth: 600, margin: 'auto'}}>
-            <h2 style={{marginBottom: '24px'}}>Nastavení Spojení</h2>
-            
-            <div className="input-group">
-              <label>IP Adresa PS3 (např. 192.168.1.100)</label>
-              <input type="text" value={settings.ps3Ip} onChange={e => setSettings({...settings, ps3Ip: e.target.value})} placeholder="Host IP"/>
+              <div className="input-field">
+                <label>Nextcloud URL</label>
+                <input type="text" value={settings.ncUrl} onChange={e => setSettings({...settings, ncUrl: e.target.value})} placeholder="https://cloud.example.com"/>
+              </div>
+              <div className="widget-row" style={{gap: 12}}>
+                  <div className="input-field" style={{flex: 1}}>
+                    <label>Uživatel</label>
+                    <input type="text" value={settings.ncUser} onChange={e => setSettings({...settings, ncUser: e.target.value})}/>
+                  </div>
+                  <div className="input-field" style={{flex: 1}}>
+                    <label>Heslo</label>
+                    <input type="password" value={settings.ncPass} onChange={e => setSettings({...settings, ncPass: e.target.value})}/>
+                  </div>
+              </div>
+              <button onClick={saveSettings} style={{background: 'var(--accent-blue)', color: '#000', padding: 16, border: 'none', borderRadius: 12, fontWeight: 700, cursor: 'pointer'}}>Uložit Konfiguraci</button>
             </div>
-
-            <div className="input-group" style={{marginTop: '24px'}}>
-              <label>Nextcloud WebDAV URL</label>
-              <input type="text" value={settings.ncUrl} onChange={e => setSettings({...settings, ncUrl: e.target.value})} placeholder="https://tvuj-cloud.cz/"/>
-            </div>
-
-            <div className="input-group">
-              <label>Nextcloud Uživatelské jméno</label>
-              <input type="text" value={settings.ncUser} onChange={e => setSettings({...settings, ncUser: e.target.value})} placeholder="admin"/>
-            </div>
-
-            <div className="input-group">
-              <label>Nextcloud Aplikační heslo (App Password)</label>
-              <input type="password" value={settings.ncPass} onChange={e => setSettings({...settings, ncPass: e.target.value})} placeholder="xxxx-xxxx-xxxx-xxxx"/>
-            </div>
-            
-            <button onClick={saveSettings} style={{marginTop: '24px', width: '100%'}}>Uložit a pokračovat</button>
           </div>
         )}
       </main>
