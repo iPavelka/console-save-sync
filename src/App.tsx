@@ -111,8 +111,16 @@ function App() {
 
       <header className="top-bar">
         <div className="ps3-logo">
-           <img src="/ps3.png" alt="PS3" style={{width: 32, height: 32, objectFit: 'contain'}} />
-           PLAYSTATION 3 <span style={{fontWeight: 300, fontSize: '1rem', opacity: 0.6, marginLeft: 10}}>| Sync Engine</span>
+           <img src="/ps3.png" alt="PS3" style={{width: 36, height: 36, objectFit: 'contain'}} />
+           <span style={{
+             background: 'linear-gradient(180deg, #0f172a 0%, #334155 100%)',
+             WebkitBackgroundClip: 'text',
+             WebkitTextFillColor: 'transparent',
+             fontWeight: 800,
+             fontSize: '1.6rem',
+             marginLeft: 10
+           }}>PLAYSTATION 3</span>
+           <span style={{fontWeight: 300, fontSize: '1rem', opacity: 0.8, marginLeft: 10, letterSpacing: '1px', color: 'var(--text-muted)'}}>| Sync Engine</span>
         </div>
         <div className="status-bar">
            <div className="status-item">
@@ -177,13 +185,13 @@ function App() {
               )}
               {scanResults.map(res => (
                 <div className="sync-item" key={res.folderName} style={{
-                  borderColor: res.action === 'synced' ? 'rgba(0, 230, 118, 0.2)' : 'transparent',
-                  background: res.action === 'synced' ? 'rgba(0, 230, 118, 0.05)' : 'rgba(255, 255, 255, 0.02)'
+                  borderColor: res.action === 'synced' ? 'rgba(34, 197, 94, 0.2)' : 'var(--glass-border)',
+                  background: res.action === 'synced' ? 'rgba(34, 197, 94, 0.05)' : 'white'
                 }}>
                   {res.iconBase64 ? (
                     <img src={res.iconBase64} alt="icon" className="game-icon" />
                   ) : (
-                    <div className="game-icon" style={{background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>🎮</div>
+                    <div className="game-icon" style={{background: 'rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem'}}>🎮</div>
                   )}
                   <div className="sync-info">
                     <h4>{res.gameTitle || res.folderName} 
@@ -194,14 +202,11 @@ function App() {
                     <div className="sync-meta">
                       <span style={{ 
                         color: res.action === 'upload' ? 'var(--accent-blue)' : 'var(--text-muted)',
-                        fontWeight: res.action === 'upload' ? '600' : '400',
-                        textShadow: res.action === 'upload' ? '0 0 10px rgba(0, 210, 255, 0.3)' : 'none',
-                        display: 'flex',
-                        alignItems: 'center'
+                        fontWeight: res.action === 'upload' ? '700' : '500',
                       }}>
                         <div style={{
-                          background: res.action === 'upload' ? 'rgba(0, 210, 255, 0.3)' : 'rgba(255, 255, 255, 0.1)',
-                          border: `1px solid ${res.action === 'upload' ? 'var(--accent-blue)' : 'rgba(255, 255, 255, 0.2)'}`,
+                          background: res.action === 'upload' ? 'rgba(0, 136, 204, 0.1)' : 'rgba(0, 0, 0, 0.03)',
+                          border: `1px solid ${res.action === 'upload' ? 'var(--accent-blue)' : 'rgba(0, 0, 0, 0.08)'}`,
                           borderRadius: '8px',
                           width: '40px',
                           height: '30px',
@@ -210,23 +215,21 @@ function App() {
                           justifyContent: 'center',
                           marginRight: '12px',
                           transition: 'all 0.3s ease',
-                          boxShadow: res.action === 'upload' ? '0 0 15px rgba(0, 210, 255, 0.3)' : 'none'
                         }}>
-                          <img src="/ps3.png" alt="PS3" style={{width: 24, height: 24, objectFit: 'contain', filter: res.action === 'upload' ? 'none' : 'grayscale(1) brightness(1.5) opacity(0.7)'}} />
+                          <img src="/ps3.png" alt="PS3" style={{width: 24, height: 24, objectFit: 'contain', filter: res.action === 'upload' ? 'none' : 'opacity(0.3)'}} />
                         </div>
                         PS3: {res.ps3Date ? new Date(res.ps3Date).toLocaleDateString() + ' ' + new Date(res.ps3Date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '-'}
                       </span>
                       <span style={{ 
-                        color: res.action === 'download' ? '#c499ff' : 'var(--text-muted)',
-                        fontWeight: res.action === 'download' ? '600' : '400',
-                        textShadow: res.action === 'download' ? '0 0 10px rgba(112, 0, 255, 0.3)' : 'none',
+                        color: res.action === 'download' ? 'var(--accent-purple)' : 'var(--text-muted)',
+                        fontWeight: res.action === 'download' ? '700' : '500',
                         display: 'flex',
                         alignItems: 'center',
                         marginLeft: '16px'
                       }}>
                         <div style={{
-                          background: res.action === 'download' ? 'rgba(112, 0, 255, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-                          border: `1px solid ${res.action === 'download' ? '#c499ff' : 'rgba(255, 255, 255, 0.1)'}`,
+                          background: res.action === 'download' ? 'rgba(102, 0, 204, 0.1)' : 'rgba(0, 0, 0, 0.03)',
+                          border: `1px solid ${res.action === 'download' ? 'var(--accent-purple)' : 'rgba(0, 0, 0, 0.08)'}`,
                           borderRadius: '8px',
                           width: '40px',
                           height: '30px',
@@ -235,13 +238,12 @@ function App() {
                           justifyContent: 'center',
                           marginRight: '12px',
                           transition: 'all 0.3s ease',
-                          boxShadow: res.action === 'download' ? '0 0 15px rgba(112, 0, 255, 0.2)' : 'none'
                         }}>
                           ☁️
                         </div>
                         Cloud: {res.ncDate ? new Date(res.ncDate).toLocaleDateString() + ' ' + new Date(res.ncDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '-'}
                       </span>
-                      <span style={{opacity: 0.3}}>{res.folderName}</span>
+                      <span style={{opacity: 0.3, marginLeft: 'auto'}}>{res.folderName}</span>
                     </div>
                   </div>
                   <div className="sync-actions">
