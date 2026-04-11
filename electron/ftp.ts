@@ -1,0 +1,149 @@
+import * as ftp from 'basic-ftp';
+import { Writable } from 'node:stream';
+import { parseSFO } from './sfoParser.js';
+
+export type PS3SaveInfo = {
+  folderName: string;
+  gameTitle: string;
+  dateModified: Date;
+  size: number;
+  remotePath: string;
+  profileId: string;
+  iconBase64?: string;
+};
+
+export class PS3Connection {
+  private client: ftp.Client;
+
+  constructor() {
+    this.client = new ftp.Client();
+    this.client.ftp.verbose = false;
+  }
+
+  async connect(ip: string) {
+    // PS3 FTP servers usually don't use auth, just port 21
+    try {
+      this.client.ftp.verbose = true; // Temporary debug
+      await this.client.access({
+        host: ip,
+        port: 21,
+        secure: false
+      });
+      // PS3 FTP servers (like WebMAN) advertize MLSD but often break it and return empty lists.
+      // Forcing basic-ftp to fallback to standard LIST command fixes empty folders issue!
+      const anyClient = this.client as any;
+      if (anyClient.ftp && anyClient.ftp.features) {
+          anyClient.ftp.features.delete('MLSD');
+          anyClient.ftp.features.delete('MLST');
+      }
+    } catch (e) {
+      console.error('FTP Connection Failed', e);
+      throw new Error('Nelze se spojit s PS3. Zkontroluj IP adresu a běh konzole. Detaily: ' + (e as Error).message);
+    }
+  }
+
+  async disconnect() {
+    this.client.close();
+  }
+
+  async getProfiles(): Promise<string[]> {
+    const list = await this.client.list('/dev_hdd0/home/');
+    // Usually names are 00000001, 00000002, etc.
+    return list.filter(f => f.isDirectory && f.name.match(/^[0-9]+$/)).map(f => f.name);
+  }
+
+  async getSaves(profileId: string): Promise<PS3SaveInfo[]> {
+    const saveDirPath = `/dev_hdd0/home/${profileId}/savedata/`;
+    let saveFolders;
+    try {
+      saveFolders = await this.client.list(saveDirPath);
+    } catch(err) {
+      // maybe no saves yet
+      return [];
+    }
+
+    const saves: PS3SaveInfo[] = [];
+
+    for (const folder of saveFolders) {
+      if (folder.name === '.' || folder.name === '..') continue;
+      
+      const remotePath = `${saveDirPath}${folder.name}`;
+        let gameTitle = folder.name;
+        let totalSize = folder.size; // This is just folder size in FTP
+        let latestDate = new Date(Math.max(Date.now() - 1000*60*60*24*365*10, 0)); // fallback date
+        let iconBase64 = undefined;
+  
+        // Try to parse PARAM.SFO to get proper title
+        try {
+          const fileList = await this.client.list(remotePath);
+          
+          // Accumulate size and find latest modified date of files in the save
+          totalSize = fileList.reduce((acc, file) => acc + file.size, 0);
+          let maxTime = 0;
+          fileList.forEach(f => {
+             if (f.modifiedAt && f.modifiedAt.getTime() > maxTime) maxTime = f.modifiedAt.getTime();
+          });
+          if (maxTime > 0) latestDate = new Date(maxTime);
+  
+          // Fetch PARAM.SFO
+          const sfoFile = fileList.find(f => f.name === 'PARAM.SFO');
+          if (sfoFile) {
+            const fileBuffer = await this.downloadFileToBuffer(`${remotePath}/PARAM.SFO`);
+            const sfoData = parseSFO(fileBuffer);
+            if (sfoData['TITLE']) {
+              gameTitle = String(sfoData['TITLE']);
+            }
+          }
+
+          // Fetch ICON0.PNG
+          const iconFile = fileList.find(f => f.name === 'ICON0.PNG');
+          if (iconFile) {
+              const iconBuffer = await this.downloadFileToBuffer(`${remotePath}/ICON0.PNG`);
+              iconBase64 = `data:image/png;base64,${iconBuffer.toString('base64')}`;
+          }
+        } catch (err) {
+          console.error(`Failed to read details of ${remotePath}`, err);
+        }
+  
+        saves.push({
+          folderName: folder.name,
+          gameTitle,
+          dateModified: latestDate,
+          size: totalSize,
+          remotePath,
+          profileId,
+          iconBase64
+        });
+    }
+
+    return saves;
+  }
+
+  async getFileList(remoteDir: string): Promise<string[]> {
+    const files = await this.client.list(remoteDir);
+    return files.filter(f => !f.isDirectory).map(f => f.name);
+  }
+
+  async downloadFileToBuffer(remotePath: string): Promise<Buffer> {
+    const buffers: Buffer[] = [];
+    const writable = new Writable({
+      write(chunk, encoding, callback) {
+        buffers.push(Buffer.from(chunk));
+        callback();
+      }
+    });
+    await this.client.downloadTo(writable, remotePath);
+    return Buffer.concat(buffers);
+  }
+
+  async uploadFileFromBuffer(remotePath: string, data: Buffer): Promise<void> {
+    const { Readable } = await import('node:stream');
+    const readable = Readable.from(data);
+    await this.client.uploadFrom(readable, remotePath);
+  }
+
+  async createDir(remotePath: string): Promise<void> {
+    await this.client.ensureDir(remotePath);
+    await this.client.cd('/');
+  }
+}
