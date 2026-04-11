@@ -13,16 +13,18 @@
   },
   "build": {
     "appId": "com.pavelka.console-save-sync",
-    "productName": "Console Save Sync",
+    "productName": "PS3 Save Sync",
     "copyright": "Copyright © 2024 iPavelka",
     "directories": {
       "output": "release/${version}"
     },
     "files": [
       "dist",
-      "dist-electron"
+      "dist-electron",
+      "public"
     ],
     "win": {
+      "icon": "public/icon.png",
       "target": [
         "nsis"
       ]

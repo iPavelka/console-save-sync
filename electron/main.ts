@@ -24,11 +24,14 @@ const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'];
 
 function createWindow() {
   win = new BrowserWindow({
-    width: 1024,
-    height: 768,
-    icon: path.join(process.env.VITE_PUBLIC!, 'electron-vite.svg'),
+    width: 1100,
+    height: 750,
+    title: "PS3 Save Sync",
+    icon: path.join(__dirname, "../public/icon.png"),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
     },
     // We want a premium look, no default menu usually, but leave it for now
     autoHideMenuBar: true,
