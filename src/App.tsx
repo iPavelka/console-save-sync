@@ -20,7 +20,7 @@ type SyncItem = {
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard')
-  const [settings, setSettings] = useState({ ps3Ip: '', ncUrl: '', ncUser: '', ncPass: '', ps3ProfileId: '' });
+  const [settings, setSettings] = useState({ ps3Ip: '', ncUrl: '', ncUser: '', ncPass: '', ps3ProfileId: '', cloudPersona: '' });
   const [loading, setLoading] = useState(false);
   const [availableProfiles, setAvailableProfiles] = useState<{id: string, name: string}[]>([]);
   const [fetchingProfiles, setFetchingProfiles] = useState(false);
@@ -35,7 +35,8 @@ function App() {
         ncUrl: res.ncUrl || '',
         ncUser: res.ncUser || '',
         ncPass: res.ncPass || '',
-        ps3ProfileId: res.ps3ProfileId || ''
+        ps3ProfileId: res.ps3ProfileId || '',
+        cloudPersona: res.cloudPersona || ''
       };
       setSettings(loaded);
       
@@ -56,8 +57,11 @@ function App() {
       const result = await window.electronAPI.getPS3Profiles();
       if (result.success) {
         setAvailableProfiles(result.data);
-        if (result.data.length > 0 && !settings.ps3ProfileId) {
-          setSettings({...settings, ps3ProfileId: result.data[0].id});
+        if (result.data.length > 0) {
+          const updates: any = {};
+          if (!settings.ps3ProfileId) updates.ps3ProfileId = result.data[0].id;
+          if (!settings.cloudPersona && result.data[0].name) updates.cloudPersona = result.data[0].name;
+          if (Object.keys(updates).length > 0) setSettings({...settings, ...updates});
         }
       } else {
         setErrorMsg('Nepodařilo se načíst profily: ' + result.error);
@@ -342,6 +346,19 @@ function App() {
                   </div>
                   <small style={{color: 'var(--text-muted)', fontSize: '0.7rem', marginTop: '4px'}}>
                     Musíš nejdřív proskenovat konzoli a zvolit správný profil.
+                  </small>
+                </div>
+
+                <div className="input-field">
+                  <label>Cloudové Jméno (Persona)</label>
+                  <input 
+                    type="text" 
+                    value={settings.cloudPersona} 
+                    onChange={e => setSettings({...settings, cloudPersona: e.target.value})} 
+                    placeholder="Např. Velbloud"
+                  />
+                  <small style={{color: 'var(--text-muted)', fontSize: '0.7rem', marginTop: '4px'}}>
+                    Toto jméno propojuje tvoji konzoli s cloudem. Použij stejné jméno na všech svých PS3!
                   </small>
                 </div>
               </div>

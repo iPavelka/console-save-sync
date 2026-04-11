@@ -36,6 +36,11 @@ export class SyncService {
         return profiles;
     }
 
+    private getCloudPersona(profileId: string): string {
+        const persona = store.get('cloudPersona') as string;
+        return persona || profileId;
+    }
+
     async scanDeltas(): Promise<SyncItem[]> {
         const ip = store.get('ps3Ip');
         if (!ip) throw new Error('No PS3 IP Address configured');
@@ -53,10 +58,11 @@ export class SyncService {
             activeProfile = '00000001';
         }
 
-        console.log(`Používám PS3 profil: ${activeProfile}`);
+        const cloudPersona = this.getCloudPersona(activeProfile);
+        console.log(`Používám PS3 profil: ${activeProfile}, Cloud Persona: ${cloudPersona}`);
 
         const ps3Saves = await this.ftp.getSaves(activeProfile);
-        const ncSaves = await this.nc.getSaves(activeProfile);
+        const ncSaves = await this.nc.getSaves(cloudPersona);
 
         await this.ftp.disconnect();
 
@@ -81,7 +87,7 @@ export class SyncService {
             
             // Re-discover original PS3 date from cloud metadata
             try {
-                const metaBuf = await this.nc.downloadFileToBuffer(`/PS3_Saves/${activeProfile}/${cloud.folderName}/sync-meta.json`);
+                const metaBuf = await this.nc.downloadFileToBuffer(`/PS3_Saves/${cloudPersona}/${cloud.folderName}/sync-meta.json`);
                 const meta = JSON.parse(metaBuf.toString('utf-8'));
                 if (meta.mtime) {
                     trueDate = new Date(meta.mtime);
@@ -107,7 +113,7 @@ export class SyncService {
                 let downloadedIcon = undefined;
                 try {
                     // Only download icon if it's potentially needed (not on PS3)
-                    const iconBuf = await this.nc.downloadFileToBuffer(`/PS3_Saves/${activeProfile}/${cloud.folderName}/ICON0.PNG`);
+                    const iconBuf = await this.nc.downloadFileToBuffer(`/PS3_Saves/${cloudPersona}/${cloud.folderName}/ICON0.PNG`);
                     downloadedIcon = `data:image/png;base64,${iconBuf.toString('base64')}`;
                 } catch (e) {}
 
@@ -135,15 +141,15 @@ export class SyncService {
         await this.ftp.connect(ip);
         
         try {
+            const cloudPersona = this.getCloudPersona(profileId);
             if (action === 'upload') {
                 // From PS3 to Cloud
                 const ps3Dir = `/dev_hdd0/home/${profileId}/savedata/${folderName}`;
-                const cloudDir = `/PS3_Saves/${profileId}/${folderName}`;
+                const cloudDir = `/PS3_Saves/${cloudPersona}/${folderName}`;
 
                 await this.nc.createDir(cloudDir);
 
                 const files = await this.ftp.getFileList(ps3Dir);
-                let latestMtime = 0;
                 for (const fileName of files) {
                     const data = await this.ftp.downloadFileToBuffer(`${ps3Dir}/${fileName}`);
                     await this.nc.uploadFileFromBuffer(`${cloudDir}/${fileName}`, data);
@@ -160,7 +166,7 @@ export class SyncService {
             } else if (action === 'download') {
                 // From Cloud to PS3
                 const ps3Dir = `/dev_hdd0/home/${profileId}/savedata/${folderName}`;
-                const cloudDir = `/PS3_Saves/${profileId}/${folderName}`;
+                const cloudDir = `/PS3_Saves/${cloudPersona}/${folderName}`;
 
                 await this.ftp.createDir(ps3Dir);
 
