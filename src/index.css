@@ -93,6 +93,7 @@ body {
   letter-spacing: -1px;
   background: linear-gradient(180deg, #fff 0%, #aaa 100%);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
   display: flex;
   align-items: center;
@@ -348,4 +349,48 @@ input:focus {
 .dot.online {
   background: var(--success-color, #00e676);
   box-shadow: 0 0 8px var(--success-color, #00e676);
+}
+
+/* --- RESPONSIVENESS --- */
+@media (max-width: 900px) {
+  .app-container {
+    padding: 20px;
+  }
+  
+  .xmb-nav {
+    gap: 24px;
+    margin-bottom: 30px;
+  }
+
+  .category-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .section-title {
+    font-size: 1.6rem;
+  }
+
+  .widget-row {
+    flex-direction: column;
+    gap: 16px;
+  }
+}
+
+@media (max-height: 600px) {
+  .app-container {
+    padding: 15px;
+  }
+
+  .top-bar {
+    margin-bottom: 15px;
+  }
+
+  .xmb-nav {
+    margin-bottom: 20px;
+  }
+
+  .main-content {
+    overflow-y: auto;
+  }
 }

@@ -58,7 +58,12 @@ function App() {
     try {
       const result = await window.electronAPI.scanDeltas();
       if (result.success) {
-        setScanResults(result.data);
+        const sorted = (result.data as SyncItem[]).sort((a, b) => {
+          const timeA = Math.max(a.ps3Date ? new Date(a.ps3Date).getTime() : 0, a.ncDate ? new Date(a.ncDate).getTime() : 0);
+          const timeB = Math.max(b.ps3Date ? new Date(b.ps3Date).getTime() : 0, b.ncDate ? new Date(b.ncDate).getTime() : 0);
+          return timeB - timeA;
+        });
+        setScanResults(sorted);
       } else {
         setErrorMsg('Chyba spojení: ' + result.error);
       }
@@ -75,7 +80,7 @@ function App() {
     try {
       const result = await window.electronAPI.performSync(item.action, item.profileId, item.folderName);
       if (result.success) {
-        setScanResults(prev => prev.map(r => r.folderName === item.folderName ? { ...r, action: 'synced', _loading: false } : r));
+        setScanResults(prev => prev.map(r => r.folderName === item.folderName ? { ...r, action: 'synced', _loading: false, ps3Date: item.action === 'download' ? item.ncDate : item.ps3Date, ncDate: item.action === 'upload' ? item.ps3Date : item.ncDate } : r));
       } else {
         setErrorMsg('Chyba při přenosu: ' + result.error);
         setScanResults(prev => prev.map(r => r.folderName === item.folderName ? { ...r, _loading: false } : r));
@@ -171,7 +176,10 @@ function App() {
                 <div style={{padding: 40, textAlign: 'center', opacity: 0.5}}>Vše je synchronizováno nebo neproběhl sken.</div>
               )}
               {scanResults.map(res => (
-                <div className="sync-item" key={res.folderName}>
+                <div className="sync-item" key={res.folderName} style={{
+                  borderColor: res.action === 'synced' ? 'rgba(0, 230, 118, 0.2)' : 'transparent',
+                  background: res.action === 'synced' ? 'rgba(0, 230, 118, 0.05)' : 'rgba(255, 255, 255, 0.02)'
+                }}>
                   {res.iconBase64 ? (
                     <img src={res.iconBase64} alt="icon" className="game-icon" />
                   ) : (
@@ -181,12 +189,24 @@ function App() {
                     <h4>{res.gameTitle || res.folderName} 
                       {res.action === 'upload' && <span className="badge upload" style={{marginLeft: 10}}>K záloze</span>}
                       {res.action === 'download' && <span className="badge download" style={{marginLeft: 10}}>Ke stažení</span>}
-                      {res.action === 'synced' && <span className="badge synced" style={{marginLeft: 10}}>OK</span>}
+                      {res.action === 'synced' && <span className="badge synced" style={{marginLeft: 10}}>Synchronizováno</span>}
                     </h4>
                     <div className="sync-meta">
-                      <span>🕹️ {res.ps3Date ? new Date(res.ps3Date).toLocaleDateString() : '-'}</span>
-                      <span>☁️ {res.ncDate ? new Date(res.ncDate).toLocaleDateString() : '-'}</span>
-                      <span style={{opacity: 0.4}}>{res.folderName}</span>
+                      <span style={{ 
+                        color: res.action === 'upload' ? 'var(--accent-blue)' : 'var(--text-muted)',
+                        fontWeight: res.action === 'upload' ? '600' : '400',
+                        textShadow: res.action === 'upload' ? '0 0 10px rgba(0, 210, 255, 0.3)' : 'none'
+                      }}>
+                        🕹️ PS3: {res.ps3Date ? new Date(res.ps3Date).toLocaleDateString() + ' ' + new Date(res.ps3Date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '-'}
+                      </span>
+                      <span style={{ 
+                        color: res.action === 'download' ? '#c499ff' : 'var(--text-muted)',
+                        fontWeight: res.action === 'download' ? '600' : '400',
+                        textShadow: res.action === 'download' ? '0 0 10px rgba(112, 0, 255, 0.3)' : 'none'
+                      }}>
+                        ☁️ Cloud: {res.ncDate ? new Date(res.ncDate).toLocaleDateString() + ' ' + new Date(res.ncDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '-'}
+                      </span>
+                      <span style={{opacity: 0.3}}>{res.folderName}</span>
                     </div>
                   </div>
                   <div className="sync-actions">
@@ -200,28 +220,65 @@ function App() {
         )}
 
         {activeTab === 'settings' && (
-          <div className="tab-content" style={{animation: 'slideIn 0.4s ease'}}>
-            <h1 className="section-title">Služby</h1>
-            <div className="settings-panel widget">
-              <div className="input-field">
-                <label>IP Adresa PS3</label>
-                <input type="text" value={settings.ps3Ip} onChange={e => setSettings({...settings, ps3Ip: e.target.value})} placeholder="192.168.1.xxx"/>
+          <div className="tab-content" style={{animation: 'slideIn 0.4s ease', maxWidth: '800px', width: '100%'}}>
+            <h1 className="section-title">Konfigurace služeb</h1>
+            
+            <div className="settings-grid" style={{
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', 
+              gap: '24px'
+            }}>
+              <div className="settings-section widget" style={{display: 'flex', flexDirection: 'column', gap: '20px'}}>
+                <h3 style={{display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--accent-blue)'}}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+                  Konzole PS3
+                </h3>
+                <div className="input-field">
+                  <label>Místní IP Adresa</label>
+                  <input type="text" value={settings.ps3Ip} onChange={e => setSettings({...settings, ps3Ip: e.target.value})} placeholder="Např. 192.168.1.15"/>
+                  <small style={{color: 'var(--text-muted)', fontSize: '0.7rem', marginTop: '4px'}}>IP adresa tvojí konzole (najdeš v System Settings nebo WebMANu).</small>
+                </div>
               </div>
-              <div className="input-field">
-                <label>Nextcloud URL</label>
-                <input type="text" value={settings.ncUrl} onChange={e => setSettings({...settings, ncUrl: e.target.value})} placeholder="https://cloud.example.com"/>
+
+              <div className="settings-section widget" style={{display: 'flex', flexDirection: 'column', gap: '20px'}}>
+                <h3 style={{display: 'flex', alignItems: 'center', gap: '10px', color: '#c499ff'}}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                  Nextcloud Cloud
+                </h3>
+                <div className="input-field">
+                  <label>WebDAV URL</label>
+                  <input type="text" value={settings.ncUrl} onChange={e => setSettings({...settings, ncUrl: e.target.value})} placeholder="https://tvuj-cloud.cz"/>
+                </div>
+                <div className="input-field">
+                  <label>Uživatelské jméno</label>
+                  <input type="text" value={settings.ncUser} onChange={e => setSettings({...settings, ncUser: e.target.value})} placeholder="admin"/>
+                </div>
+                <div className="input-field">
+                  <label>Aplikační heslo</label>
+                  <input type="password" value={settings.ncPass} onChange={e => setSettings({...settings, ncPass: e.target.value})} placeholder="xxxx-xxxx-xxxx-xxxx"/>
+                  <small style={{color: 'var(--text-muted)', fontSize: '0.7rem', marginTop: '4px'}}>Doporučuje se použít "App password" z nastavení zabezpečení Nextcloudu.</small>
+                </div>
               </div>
-              <div className="widget-row" style={{gap: 12}}>
-                  <div className="input-field" style={{flex: 1}}>
-                    <label>Uživatel</label>
-                    <input type="text" value={settings.ncUser} onChange={e => setSettings({...settings, ncUser: e.target.value})}/>
-                  </div>
-                  <div className="input-field" style={{flex: 1}}>
-                    <label>Heslo</label>
-                    <input type="password" value={settings.ncPass} onChange={e => setSettings({...settings, ncPass: e.target.value})}/>
-                  </div>
-              </div>
-              <button onClick={saveSettings} style={{background: 'var(--accent-blue)', color: '#000', padding: 16, border: 'none', borderRadius: 12, fontWeight: 700, cursor: 'pointer'}}>Uložit Konfiguraci</button>
+            </div>
+
+            <div style={{marginTop: '32px', display: 'flex', justifyContent: 'flex-end'}}>
+              <button onClick={saveSettings} style={{
+                background: 'linear-gradient(135deg, var(--accent-blue), var(--accent-purple))',
+                color: '#fff',
+                padding: '16px 48px',
+                border: 'none',
+                borderRadius: '12px',
+                fontWeight: 700,
+                fontSize: '1rem',
+                cursor: 'pointer',
+                boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
+                transition: 'transform 0.2s ease'
+              }}
+              onMouseOver={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+              onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}
+              >
+                Uložit a synchronizovat
+              </button>
             </div>
           </div>
         )}
