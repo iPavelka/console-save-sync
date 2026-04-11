@@ -46,10 +46,36 @@ export class PS3Connection {
     this.client.close();
   }
 
-  async getProfiles(): Promise<string[]> {
+  async getProfiles(): Promise<{id: string, name: string}[]> {
     const list = await this.client.list('/dev_hdd0/home/');
-    // Usually names are 00000001, 00000002, etc.
-    return list.filter(f => f.isDirectory && f.name.match(/^[0-9]+$/)).map(f => f.name);
+    const folders = list.filter(f => f.isDirectory && f.name.match(/^[0-9]+$/)).map(f => f.name);
+    
+    const profiles = [];
+    for (const id of folders) {
+      const name = await this.getProfileName(id);
+      profiles.push({ id, name });
+    }
+    return profiles;
+  }
+
+  async getProfileName(profileId: string): Promise<string> {
+    const paths = [
+      `/dev_hdd0/home/${profileId}/localusername`,
+      `/dev_hdd0/home/${profileId}/username`,
+      `/dev_hdd0/home/${profileId}/name`
+    ];
+
+    for (const path of paths) {
+      try {
+        const buffer = await this.downloadFileToBuffer(path);
+        const name = buffer.toString('utf-8').trim();
+        if (name) return name;
+      } catch (e) {
+        // ignore, try next path
+      }
+    }
+
+    return `Profil ${parseInt(profileId, 10)}`; // Fallback if no name found
   }
 
   async getSaves(profileId: string): Promise<PS3SaveInfo[]> {

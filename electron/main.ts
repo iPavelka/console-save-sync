@@ -80,6 +80,16 @@ app.on('ready', () => {
     }
   });
 
+  ipcMain.handle('get-ps3-profiles', async () => {
+    try {
+      const sync = new SyncService();
+      await sync.init();
+      return { success: true, data: await sync.getAvailableProfiles() };
+    } catch (e: any) {
+      return { success: false, error: e.message };
+    }
+  });
+
   ipcMain.handle('perform-sync', async (event, action, profileId, folderName) => {
     try {
       const sync = new SyncService();

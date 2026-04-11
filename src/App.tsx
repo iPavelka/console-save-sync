@@ -20,8 +20,10 @@ type SyncItem = {
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard')
-  const [settings, setSettings] = useState({ ps3Ip: '', ncUrl: '', ncUser: '', ncPass: '' });
+  const [settings, setSettings] = useState({ ps3Ip: '', ncUrl: '', ncUser: '', ncPass: '', ps3ProfileId: '' });
   const [loading, setLoading] = useState(false);
+  const [availableProfiles, setAvailableProfiles] = useState<{id: string, name: string}[]>([]);
+  const [fetchingProfiles, setFetchingProfiles] = useState(false);
   const [scanResults, setScanResults] = useState<SyncItem[]>([]);
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -32,7 +34,8 @@ function App() {
         ps3Ip: res.ps3Ip || '',
         ncUrl: res.ncUrl || '',
         ncUser: res.ncUser || '',
-        ncPass: res.ncPass || ''
+        ncPass: res.ncPass || '',
+        ps3ProfileId: res.ps3ProfileId || ''
       };
       setSettings(loaded);
       
@@ -41,6 +44,29 @@ function App() {
       }
     });
   }, []);
+
+  const fetchProfiles = async () => {
+    if (!settings.ps3Ip) {
+      setErrorMsg('Nejdříve zadejte IP adresu konzole.');
+      return;
+    }
+    setFetchingProfiles(true);
+    setErrorMsg('');
+    try {
+      const result = await window.electronAPI.getPS3Profiles();
+      if (result.success) {
+        setAvailableProfiles(result.data);
+        if (result.data.length > 0 && !settings.ps3ProfileId) {
+          setSettings({...settings, ps3ProfileId: result.data[0].id});
+        }
+      } else {
+        setErrorMsg('Nepodařilo se načíst profily: ' + result.error);
+      }
+    } catch (e: any) {
+      setErrorMsg('Chyba: ' + e.message);
+    }
+    setFetchingProfiles(false);
+  };
 
   const saveSettings = () => {
     window.electronAPI.saveSettings(settings);
@@ -279,7 +305,44 @@ function App() {
                 <div className="input-field">
                   <label>Místní IP Adresa</label>
                   <input type="text" value={settings.ps3Ip} onChange={e => setSettings({...settings, ps3Ip: e.target.value})} placeholder="Např. 192.168.1.15"/>
-                  <small style={{color: 'var(--text-muted)', fontSize: '0.7rem', marginTop: '4px'}}>IP adresa tvojí konzole (najdeš v System Settings nebo WebMANu).</small>
+                </div>
+
+                <div className="input-field">
+                  <label>Aktivní Profil na PS3</label>
+                  <div style={{display: 'flex', gap: '10px'}}>
+                    <select 
+                      value={settings.ps3ProfileId} 
+                      onChange={e => setSettings({...settings, ps3ProfileId: e.target.value})}
+                      style={{
+                        flex: 1,
+                        background: 'rgba(0,0,0,0.4)',
+                        border: '1px solid var(--glass-border)',
+                        padding: '14px',
+                        borderRadius: '12px',
+                        color: '#fff',
+                        fontFamily: 'inherit',
+                        outline: 'none'
+                      }}
+                    >
+                      {!settings.ps3ProfileId && <option value="">Nevybráno</option>}
+                      {availableProfiles.map(p => (
+                        <option key={p.id} value={p.id}>{p.name} ({p.id})</option>
+                      ))}
+                    </select>
+                    <button onClick={fetchProfiles} disabled={fetchingProfiles} style={{
+                      padding: '0 20px',
+                      background: 'var(--glass)',
+                      border: '1px solid var(--glass-border)',
+                      color: '#fff',
+                      borderRadius: '12px',
+                      cursor: 'pointer'
+                    }}>
+                      {fetchingProfiles ? '...' : 'Skenovat'}
+                    </button>
+                  </div>
+                  <small style={{color: 'var(--text-muted)', fontSize: '0.7rem', marginTop: '4px'}}>
+                    Musíš nejdřív proskenovat konzoli a zvolit správný profil.
+                  </small>
                 </div>
               </div>
 

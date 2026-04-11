@@ -27,14 +27,31 @@ export class SyncService {
         }
     }
 
+    async getAvailableProfiles(): Promise<{id: string, name: string}[]> {
+        const ip = store.get('ps3Ip');
+        if (!ip) throw new Error('No PS3 IP Address configured');
+        await this.ftp.connect(ip);
+        const profiles = await this.ftp.getProfiles();
+        await this.ftp.disconnect();
+        return profiles;
+    }
+
     async scanDeltas(): Promise<SyncItem[]> {
         const ip = store.get('ps3Ip');
         if (!ip) throw new Error('No PS3 IP Address configured');
 
         await this.ftp.connect(ip);
 
+        // Get profiles and find the active one
         const profiles = await this.ftp.getProfiles();
-        const activeProfile = profiles.length > 0 ? profiles[0] : '00000001';
+        const storedProfileId = store.get('ps3ProfileId') as string;
+        
+        let activeProfile = storedProfileId;
+        if (!activeProfile && profiles.length > 0) {
+            activeProfile = profiles[0].id;
+        } else if (!activeProfile) {
+            activeProfile = '00000001';
+        }
 
         console.log(`Používám PS3 profil: ${activeProfile}`);
 
