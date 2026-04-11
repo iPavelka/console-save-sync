@@ -40,7 +40,9 @@ function createWindow() {
   });
 
   // Open developer console automatically for debugging
-  win.webContents.openDevTools();
+  if (!app.isPackaged) {
+    win.webContents.openDevTools();
+  }
 
   if (VITE_DEV_SERVER_URL) {
     win.loadURL(VITE_DEV_SERVER_URL);
