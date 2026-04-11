@@ -111,7 +111,7 @@ function App() {
 
       <header className="top-bar">
         <div className="ps3-logo">
-           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 14v4a2 2 0 0 0 2 2h4l4-8V6a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2z"/><path d="M12 4v4"/></svg>
+           <img src="/ps3.png" alt="PS3" style={{width: 32, height: 32, objectFit: 'contain'}} />
            PLAYSTATION 3 <span style={{fontWeight: 300, fontSize: '1rem', opacity: 0.6, marginLeft: 10}}>| Sync Engine</span>
         </div>
         <div className="status-bar">
@@ -197,7 +197,8 @@ function App() {
                         fontWeight: res.action === 'upload' ? '600' : '400',
                         textShadow: res.action === 'upload' ? '0 0 10px rgba(0, 210, 255, 0.3)' : 'none'
                       }}>
-                        🕹️ PS3: {res.ps3Date ? new Date(res.ps3Date).toLocaleDateString() + ' ' + new Date(res.ps3Date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '-'}
+                        <img src="/ps3.png" alt="PS3" style={{width: 16, height: 16, objectFit: 'contain', verticalAlign: 'text-bottom', marginRight: 8, filter: res.action === 'upload' ? 'none' : 'grayscale(1) opacity(0.5)'}} />
+                        PS3: {res.ps3Date ? new Date(res.ps3Date).toLocaleDateString() + ' ' + new Date(res.ps3Date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '-'}
                       </span>
                       <span style={{ 
                         color: res.action === 'download' ? '#c499ff' : 'var(--text-muted)',
