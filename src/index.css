@@ -1,15 +1,15 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
 
 :root {
-  --bg-dark: #f8fafc;
-  --bg-midnight: #ffffff;
-  --accent-blue: #0088cc; /* Darker blue for light mode */
-  --accent-purple: #6600cc;
-  --text-main: #0f172a;
-  --text-muted: #64748b;
-  --glass: rgba(255, 255, 255, 0.4);
-  --glass-border: rgba(0, 0, 0, 0.08);
-  --blur: blur(25px);
+  --bg-dark: #050510;
+  --bg-midnight: #0a0a1f;
+  --accent-blue: #00d2ff;
+  --accent-purple: #7000ff;
+  --text-main: #ffffff;
+  --text-muted: #a0a0ab;
+  --glass: rgba(255, 255, 255, 0.05);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --blur: blur(15px);
 }
 
 * {
@@ -28,7 +28,7 @@ body {
   position: relative;
 }
 
-/* --- THE WAVE BACKGROUND (LIGHT MODE) --- */
+/* --- THE WAVE BACKGROUND --- */
 .background-container {
   position: fixed;
   top: 0;
@@ -36,8 +36,8 @@ body {
   width: 100%;
   height: 100%;
   z-index: -1;
-  background: radial-gradient(circle at 80% 10%, rgba(0, 210, 255, 0.1), transparent 40%),
-              radial-gradient(circle at 10% 90%, rgba(112, 0, 255, 0.1), transparent 40%),
+  background: radial-gradient(circle at 70% 20%, rgba(112, 0, 255, 0.15), transparent 40%),
+              radial-gradient(circle at 20% 80%, rgba(0, 210, 255, 0.1), transparent 40%),
               var(--bg-midnight);
 }
 
@@ -48,26 +48,26 @@ body {
   transform: translate(-50%, -50%);
   width: 200%;
   height: 200%;
-  opacity: 0.15; /* Snížená opacita pro světlý režim */
+  opacity: 0.4;
 }
 
 .wave-path {
   fill: none;
   stroke: url(#glowGradient);
-  stroke-width: 0.8;
-  animation: waveMotion 20s ease-in-out infinite alternate;
+  stroke-width: 0.5;
+  animation: waveMotion 15s ease-in-out infinite alternate;
 }
 
 .wave-path:nth-child(2) {
-  animation-duration: 30s;
-  animation-delay: -7s;
-  opacity: 0.6;
+  animation-duration: 25s;
+  animation-delay: -5s;
+  opacity: 0.5;
 }
 
 @keyframes waveMotion {
   0% { transform: scale(1) rotate(0deg) skew(0deg); }
-  50% { transform: scale(1.05) rotate(3deg) skew(2deg); }
-  100% { transform: scale(1) rotate(-2deg) skew(-1deg); }
+  50% { transform: scale(1.1) rotate(5deg) skew(3deg); }
+  100% { transform: scale(1) rotate(-3deg) skew(-2deg); }
 }
 
 /* --- APP LAYOUT --- */
@@ -87,14 +87,20 @@ body {
   margin-bottom: 40px;
 }
 
-/* --- LOGO STYLING --- */
 .ps3-logo {
+  font-size: 1.8rem;
+  font-weight: 800;
+  letter-spacing: -1px;
+  background: linear-gradient(180deg, #fff 0%, #aaa 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-/* --- XMB NAVIGATION --- */
+/* --- XMB HORIZONTAL NAVIGATION --- */
 .xmb-nav {
   display: flex;
   gap: 48px;
@@ -109,7 +115,7 @@ body {
   cursor: pointer;
   transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   position: relative;
-  opacity: 0.35;
+  opacity: 0.4;
   transform: scale(0.9);
 }
 
@@ -122,7 +128,7 @@ body {
   width: 48px;
   height: 48px;
   padding: 10px;
-  background: rgba(0,0,0,0.03);
+  background: var(--glass);
   backdrop-filter: var(--blur);
   border-radius: 12px;
   border: 1px solid var(--glass-border);
@@ -130,19 +136,16 @@ body {
   align-items: center;
   justify-content: center;
   transition: box-shadow 0.3s ease;
-  color: var(--text-main);
 }
 
 .category.active .category-icon {
-  background: white;
   border-color: var(--accent-blue);
-  box-shadow: 0 10px 25px rgba(0, 136, 204, 0.15);
-  color: var(--accent-blue);
+  box-shadow: 0 0 20px rgba(0, 210, 255, 0.4);
 }
 
 .category-label {
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--text-muted);
@@ -150,6 +153,7 @@ body {
 
 .category.active .category-label {
   color: var(--text-main);
+  text-shadow: 0 0 8px rgba(255,255,255,0.5);
 }
 
 /* --- CONTENT AREA --- */
@@ -163,10 +167,9 @@ body {
 
 .section-title {
   font-size: 2.2rem;
-  font-weight: 700;
+  font-weight: 300;
   margin-bottom: 20px;
   animation: slideIn 0.5s ease;
-  color: var(--text-main);
 }
 
 @keyframes slideIn {
@@ -174,7 +177,7 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* --- WIDGETS --- */
+/* --- GRID & WIDGETS --- */
 .widget-row {
   display: flex;
   gap: 24px;
@@ -183,26 +186,23 @@ body {
 
 .widget {
   flex: 1;
-  background: white;
+  background: var(--glass);
   backdrop-filter: var(--blur);
   border: 1px solid var(--glass-border);
   border-radius: 20px;
   padding: 24px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.03);
 }
 
 .widget h3 {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--text-muted);
   text-transform: uppercase;
   margin-bottom: 8px;
-  font-weight: 600;
 }
 
 .widget h1 {
   font-size: 2.5rem;
-  font-weight: 800;
-  color: var(--text-main);
+  font-weight: 700;
 }
 
 /* --- SYNC LIST --- */
@@ -217,7 +217,7 @@ body {
 }
 
 .sync-list::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 2px;
 }
 
@@ -227,25 +227,25 @@ body {
   gap: 20px;
   padding: 20px;
   margin-bottom: 12px;
-  background: white;
-  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid transparent;
   border-radius: 16px;
   transition: all 0.3s ease;
   cursor: pointer;
 }
 
 .sync-item:hover {
-  background: #fdfdfd;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--glass-border);
+  transform: scale(1.02);
 }
 
 .game-icon {
   width: 72px;
   height: 72px;
-  border-radius: 12px;
+  border-radius: 8px;
   object-fit: cover;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
 }
 
 .sync-info {
@@ -255,7 +255,6 @@ body {
 .sync-info h4 {
   font-size: 1.2rem;
   margin-bottom: 4px;
-  font-weight: 700;
 }
 
 .sync-meta {
@@ -266,33 +265,33 @@ body {
 }
 
 .badge {
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 0.75rem;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
 }
 
-.badge.upload { background: #e0f2fe; color: #0369a1; }
-.badge.download { background: #f3e8ff; color: #7e22ce; }
-.badge.synced { background: #f0fdf4; color: #166534; }
+.badge.upload { background: rgba(0, 210, 255, 0.2); color: var(--accent-blue); }
+.badge.download { background: rgba(112, 0, 255, 0.2); color: #c499ff; }
+.badge.synced { background: rgba(255, 255, 255, 0.1); color: #fff; }
 
 .sync-actions button {
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
-  color: #0f172a;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  color: #fff;
   padding: 10px 20px;
   border-radius: 8px;
   cursor: pointer;
   font-family: inherit;
-  font-weight: 700;
+  font-weight: 600;
   transition: all 0.2s ease;
 }
 
 .sync-actions button:hover {
   background: var(--accent-blue);
-  color: white;
   border-color: var(--accent-blue);
+  color: #000;
 }
 
 /* --- SETTINGS --- */
@@ -306,46 +305,42 @@ body {
   font-size: 0.8rem;
   color: var(--text-muted);
   text-transform: uppercase;
-  font-weight: 700;
 }
 
 input {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--glass-border);
   padding: 14px;
   border-radius: 12px;
-  color: var(--text-main);
+  color: #fff;
   font-family: inherit;
-  font-weight: 500;
   outline: none;
 }
 
 input:focus {
   border-color: var(--accent-blue);
-  background: white;
-  box-shadow: 0 0 0 3px rgba(0, 136, 204, 0.1);
+  box-shadow: 0 0 10px rgba(0, 210, 255, 0.2);
 }
 
 .status-bar {
   display: flex;
   gap: 16px;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--text-muted);
-  font-weight: 600;
 }
 
 .dot {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   display: inline-block;
   margin-right: 6px;
-  background: #ef4444; /* red-500 */
+  background: #ff3366;
 }
 
 .dot.online {
-  background: #22c55e; /* green-500 */
-  box-shadow: 0 0 8px rgba(34, 197, 94, 0.4);
+  background: #00e676;
+  box-shadow: 0 0 8px #00e676;
 }
 
 /* --- RESPONSIVENESS --- */
@@ -355,4 +350,10 @@ input:focus {
   .category-icon { width: 40px; height: 40px; }
   .section-title { font-size: 1.6rem; }
   .widget-row { flex-direction: column; gap: 16px; }
+}
+
+@media (max-height: 600px) {
+  .app-container { padding: 15px; }
+  .top-bar { margin-bottom: 15px; }
+  .xmb-nav { margin-bottom: 20px; }
 }
