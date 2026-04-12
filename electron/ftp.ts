@@ -5,6 +5,8 @@ import { parseSFO } from './sfoParser.js';
 export type PS3SaveInfo = {
   folderName: string;
   gameTitle: string;
+  subtitle?: string;
+  detail?: string;
   dateModified: Date;
   size: number;
   remotePath: string;
@@ -98,6 +100,8 @@ export class PS3Connection {
         let totalSize = folder.size; // This is just folder size in FTP
         let latestDate = new Date(Math.max(Date.now() - 1000*60*60*24*365*10, 0)); // fallback date
         let iconBase64 = undefined;
+        let subtitle = undefined;
+        let detail = undefined;
   
         // Try to parse PARAM.SFO to get proper title
         try {
@@ -119,6 +123,12 @@ export class PS3Connection {
             if (sfoData['TITLE']) {
               gameTitle = String(sfoData['TITLE']);
             }
+            if (sfoData['SUB_TITLE']) {
+              subtitle = String(sfoData['SUB_TITLE']);
+            }
+            if (sfoData['DETAIL']) {
+              detail = String(sfoData['DETAIL']);
+            }
           }
 
           // Fetch ICON0.PNG
@@ -134,6 +144,8 @@ export class PS3Connection {
         saves.push({
           folderName: folder.name,
           gameTitle,
+          subtitle,
+          detail,
           dateModified: latestDate,
           size: totalSize,
           remotePath,
@@ -197,6 +209,32 @@ export class PS3Connection {
     });
 
     return Buffer.concat(buffers);
+  }
+
+  async getPS2Classics(profileId: string): Promise<PS3SaveInfo[]> {
+    const ps2Dir = `/dev_hdd0/home/${profileId}/ps2emu2_savedata/`;
+    let folders;
+    try {
+      folders = await this.client.list(ps2Dir);
+    } catch (e) {
+      return [];
+    }
+
+    const saves: PS3SaveInfo[] = [];
+    for (const folder of folders) {
+      if (folder.name === '.' || folder.name === '..' || !folder.isDirectory) continue;
+      
+      saves.push({
+        folderName: folder.name,
+        gameTitle: folder.name, // Will be mapped later in syncService
+        dateModified: folder.modifiedAt || new Date(),
+        size: folder.size,
+        remotePath: `${ps2Dir}${folder.name}`,
+        profileId,
+        // Icons for VME are encrypted, usually we'll map them by ID
+      });
+    }
+    return saves;
   }
 
   async getFileList(remoteDir: string): Promise<string[]> {

@@ -205,6 +205,41 @@ body {
   font-weight: 700;
 }
 
+.ps2-game-card {
+  border: 1px solid transparent;
+}
+
+.ps2-game-card:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  transform: translateY(-5px);
+  border-color: rgba(51, 102, 255, 0.3);
+}
+
+.btn-psv-export {
+  width: 100%;
+  padding: 8px;
+  background: rgba(51, 102, 255, 0.2);
+  border: 1px solid rgba(51, 102, 255, 0.4);
+  color: #fff;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.btn-psv-export:hover:not(:disabled) {
+  background: rgba(51, 102, 255, 0.5);
+  box-shadow: 0 0 15px rgba(51, 102, 255, 0.3);
+}
+
+.btn-psv-export:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* --- SYNC LIST --- */
 .sync-list {
   flex: 1;

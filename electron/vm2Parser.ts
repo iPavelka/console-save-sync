@@ -1,6 +1,6 @@
 /**
- * Lightweight PS2 Virtual Memory Card (.VM2) Parser
- * Specifically designed to list game folders in the root directory.
+ * Robust PS2 Virtual Memory Card (.VM2) Parser
+ * Specifically optimized for finding game folders (BASLUS-xxxxx etc).
  */
 
 export interface VMCEntry {
@@ -11,54 +11,56 @@ export interface VMCEntry {
 }
 
 export function parseVMC(buffer: Buffer): VMCEntry[] {
-    // Basic check for Magic
+    // 1. Validate Magic
     const magic = buffer.toString('ascii', 0, 28).trim();
-    if (magic !== 'Sony PS2 Memory Card Format') {
-        throw new Error('Not a valid Sony PS2 Memory Card image');
+    if (!magic.includes('Sony PS2 Memory Card Format')) {
+        console.error('Bájte na začátku karty:', buffer.slice(0, 32).toString('hex'));
+        throw new Error('Nejedná se o platný formát PS2 Virtual Memory Card.');
     }
 
-    const pageSize = buffer.readUInt16LE(40);
-    const pagesPerCluster = buffer.readUInt16LE(42);
-    const clusterSize = pageSize * pagesPerCluster;
-    const rootDirCluster = buffer.readUInt32LE(44);
-    const allocOffset = buffer.readUInt32LE(52); // Cluster where alloc data starts
-
-    // The root directory starts at rootDirCluster
-    // Each directory entry is 512 bytes (usually 1 per cluster or page depending on formatting)
-    // For a basic list, we look at the clusters starting from rootDirCluster
-    // Note: A real parser follows the FAT chain. This is a simplified "Best Effort" scanner.
-    
     const entries: VMCEntry[] = [];
-    const rootPos = (allocOffset + rootDirCluster) * clusterSize;
+    const foundNames = new Set<string>();
 
-    // Scan the first 128 entries in the root directory
-    // Each entry is 128 bytes (4 entries per 512 byte block)
-    for (let i = 0; i < 64; i++) {
-        const entryOffset = rootPos + (i * 128);
-        if (entryOffset + 128 > buffer.length) break;
-
-        const mode = buffer.readUInt16LE(entryOffset);
-        // 0x8427 is a common file, 0x8411 is a common dir (bits of MCFS)
-        // Bit 4 is directory
-        const isDir = (mode & 0x0010) !== 0;
-        const size = buffer.readUInt32LE(entryOffset + 4);
+    /**
+     * Heuristic Scan: PS2 saves follow a strict naming convention.
+     * They almost always start with 4 uppercase letters, a hyphen (or underscore), 
+     * and 5 numbers, e.g., BASLUS-21441, SCUS-97101, etc.
+     */
+    const regex = /[A-Z]{3,4}-?[0-9]{5}[A-Z0-9]*/g;
+    
+    // We scan the first 2MB of the card. Root directories and FAT are usually at the beginning.
+    const scanLimit = Math.min(buffer.length, 2 * 1024 * 1024);
+    
+    // Scan in chunks to avoid regex issues on huge strings, 
+    // but ensure overlaps to not miss markers on boundaries.
+    const chunkSize = 1024 * 64;
+    for (let offset = 0; offset < scanLimit; offset += chunkSize - 32) {
+        const end = Math.min(offset + chunkSize, scanLimit);
+        const chunk = buffer.toString('ascii', offset, end);
         
-        // Name is 32 bytes at offset 64
-        let name = '';
-        for (let j = 0; j < 32; j++) {
-            const char = buffer[entryOffset + 64 + j];
-            if (char === 0) break;
-            name += String.fromCharCode(char);
+        const matches = chunk.matchAll(regex);
+        for (const match of matches) {
+            const name = match[0];
+            // Filter out noise: PS2 Save names are typically 10-20 chars
+            if (name && name.length >= 10 && name.length <= 32 && !foundNames.has(name)) {
+                // Check if it's a known PS2 region code pattern
+                if (name.startsWith('SLUS') || name.startsWith('SCUS') || 
+                    name.startsWith('SLES') || name.startsWith('SCES') || 
+                    name.startsWith('SLPM') || name.startsWith('SLPS') ||
+                    name.startsWith('BASLUS') || name.startsWith('BASCUS')) {
+                    
+                    foundNames.add(name);
+                    entries.push({
+                        name,
+                        isDir: true,
+                        size: 0,
+                        mtime: new Date()
+                    });
+                }
+            }
         }
-
-        if (name === '.' || name === '..' || !name) continue;
-
-        // Date is at offset 8 (approx)
-        // PS2 time format is specific, but let's just get a rough date or use now
-        const mtime = new Date(); 
-
-        entries.push({ name, isDir, size, mtime });
     }
 
-    return entries;
+    // Sort alphabetically for clean UI
+    return entries.sort((a, b) => a.name.localeCompare(b.name));
 }

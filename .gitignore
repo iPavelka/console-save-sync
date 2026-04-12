@@ -12,6 +12,7 @@ dist
 dist-electron
 out
 dist-ssr
+release
 *.local
 
 # Editor directories and files

@@ -114,6 +114,17 @@ app.on('ready', () => {
     }
   });
 
+  ipcMain.handle('decompose-vmc-to-psv', async (event, vmcFileName, gameSerial, folderName) => {
+    try {
+      const sync = new SyncService();
+      await sync.init();
+      await sync.decomposeVMCGameToPSV(vmcFileName, gameSerial, folderName);
+      return { success: true };
+    } catch (e: any) {
+      return { success: false, error: e.message };
+    }
+  });
+
   ipcMain.handle('perform-sync', async (event, action, profileId, folderName) => {
     try {
       const sync = new SyncService();

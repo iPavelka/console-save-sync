@@ -9,4 +9,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getPS3Profiles: () => ipcRenderer.invoke('get-ps3-profiles'),
   getPS2Inventory: () => ipcRenderer.invoke('get-ps2-inventory'),
   performVMCSync: (action: string, fileName: string) => ipcRenderer.invoke('perform-vmc-sync', action, fileName),
+  decomposeVMCtoPSV: (vmcFileName: string, gameSerial: string, folderName: string) => ipcRenderer.invoke('decompose-vmc-to-psv', vmcFileName, gameSerial, folderName),
 });

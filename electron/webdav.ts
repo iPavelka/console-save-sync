@@ -4,7 +4,7 @@ export type NCCloudSave = {
   profileId: string;
   folderName: string;
   dateModified: Date;
-  size: number; // Approximate, folder size sync in webdav can be tricky, we'll try to calculate or ignore
+  size: number;
   remotePath: string;
 };
 
@@ -12,7 +12,6 @@ export class NextcloudConnection {
   private client: WebDAVClient | null = null;
 
   connect(url: string, user: string, pass: string) {
-    // Nextcloud WebDAV URL is usually <server>/remote.php/webdav/
     let ncUrl = url.trim();
     if (!ncUrl.endsWith('/remote.php/webdav/')) {
         if (!ncUrl.endsWith('/')) ncUrl += '/';
@@ -27,14 +26,7 @@ export class NextcloudConnection {
 
   async ensureBaseFolder() {
     if (!this.client) throw new Error('Not connected');
-    try {
-      if (await this.client.exists('/PS3_Saves') === false) {
-        await this.client.createDirectory('/PS3_Saves');
-      }
-    } catch(err) {
-       console.log('Error creating base folder', err);
-       throw err;
-    }
+    await this.createDirRecursive('/PS3_Saves');
   }
 
   async getSaves(profileId: string): Promise<NCCloudSave[]> {
@@ -42,32 +34,22 @@ export class NextcloudConnection {
     await this.ensureBaseFolder();
     
     const profilePath = `/PS3_Saves/${profileId}`;
-    if (await this.client.exists(profilePath) === false) {
-      await this.client.createDirectory(profilePath);
-      return [];
-    }
+    await this.createDirRecursive(profilePath);
 
     const items = await this.client.getDirectoryContents(profilePath);
     const saveFolders = Array.isArray(items) ? items : [items];
     
     const saves: NCCloudSave[] = [];
-    
     for (const folder of saveFolders) {
         if (folder.type !== 'directory') continue;
-
-        // Optionally, we could list contents to get total size/latest date, 
-        // but WebDAV often provides lastmod for directories
-        const dateModified = new Date(folder.lastmod);
-
         saves.push({
             profileId,
             folderName: folder.basename,
-            dateModified,
+            dateModified: new Date(folder.lastmod),
             size: folder.size || 0,
             remotePath: folder.filename
         });
     }
-
     return saves;
   }
 
@@ -91,10 +73,32 @@ export class NextcloudConnection {
     await this.client.putFileContents(remotePath, data);
   }
 
-  async createDir(remotePath: string): Promise<void> {
+  async createDirRecursive(remotePath: string): Promise<void> {
     if (!this.client) throw new Error('Not connected');
-    if (await this.client.exists(remotePath) === false) {
-      await this.client.createDirectory(remotePath);
+    const parts = remotePath.split('/').filter(p => p.length > 0);
+    let currentPath = '';
+    for (const part of parts) {
+      currentPath += '/' + part;
+      try {
+        if (await this.client.exists(currentPath) === false) {
+          await this.client.createDirectory(currentPath);
+        }
+      } catch (err: any) {
+        // If 405, it might already exist, ignore and continue
+        if (err.response && err.response.status === 405) {
+          continue;
+        }
+        throw err;
+      }
     }
+  }
+
+  async createDir(remotePath: string): Promise<void> {
+    await this.createDirRecursive(remotePath);
+  }
+
+  async exists(remotePath: string): Promise<boolean> {
+    if (!this.client) throw new Error('Not connected');
+    return await this.client.exists(remotePath);
   }
 }

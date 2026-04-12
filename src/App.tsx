@@ -10,9 +10,12 @@ declare global {
 type SyncItem = {
     folderName: string;
     gameTitle: string | null;
+    subtitle?: string;
+    detail?: string;
     action: 'upload' | 'download' | 'synced';
     ps3Date: Date | null;
     ncDate: Date | null;
+    size?: number;
     profileId: string;
     iconBase64?: string;
     _loading?: boolean;
@@ -24,6 +27,8 @@ type PS2VMCInfo = {
     mtime: Date;
     games: {serial: string, title: string, icon: string}[];
     action: 'upload' | 'download' | 'synced';
+    type: 'vmc' | 'classic';
+    profileId?: string;
     _loading?: boolean;
 };
 
@@ -146,14 +151,39 @@ function App() {
     }
   };
 
+  const handleDecompose = async (vmcFileName: string, gameSerial: string, folderName: string) => {
+    try {
+      // Find the VMC and mark it as loading
+      setPs2Inventory(prev => prev.map(v => v.fileName === vmcFileName ? { ...v, _loading: true } : v));
+      
+      const result = await window.electronAPI.decomposeVMCtoPSV(vmcFileName, gameSerial, folderName);
+      
+      if (result.success) {
+        // Find the game and maybe show a success toast?
+        console.log('PSV export success');
+      } else {
+        setErrorMsg('Chyba při exportu PSV: ' + result.error);
+      }
+      setPs2Inventory(prev => prev.map(v => v.fileName === vmcFileName ? { ...v, _loading: false } : v));
+    } catch (e: any) {
+      setErrorMsg('Chyba: ' + e.message);
+    }
+  };
+
   const handleVMCSync = async (vmc: PS2VMCInfo) => {
     setPs2Inventory(prev => prev.map(v => v.fileName === vmc.fileName ? { ...v, _loading: true } : v));
     try {
-      const result = await window.electronAPI.performVMCSync(vmc.action, vmc.fileName);
+      let result;
+      if (vmc.type === 'vmc') {
+        result = await window.electronAPI.performVMCSync(vmc.action, vmc.fileName);
+      } else {
+        result = await window.electronAPI.performPS2ClassicSync(vmc.action, vmc.profileId || '00000001', vmc.fileName);
+      }
+
       if (result.success) {
         setPs2Inventory(prev => prev.map(v => v.fileName === vmc.fileName ? { ...v, action: 'synced', _loading: false } : v));
       } else {
-        setErrorMsg('Chyba při přenosu VMC: ' + result.error);
+        setErrorMsg('Chyba při přenosu: ' + result.error);
         setPs2Inventory(prev => prev.map(v => v.fileName === vmc.fileName ? { ...v, _loading: false } : v));
       }
     } catch (e: any) {
@@ -255,7 +285,7 @@ function App() {
 
         {activeTab === 'ps2' && (
           <div className="tab-content" style={{animation: 'slideIn 0.4s ease', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0}}>
-            <h1 className="section-title">PS2 Hub & Memory Cards</h1>
+            <h1 className="section-title">PS2 Hub</h1>
             <div className="widget-row">
               <div className="widget" style={{background: 'rgba(51, 102, 255, 0.05)', borderColor: 'rgba(51, 102, 255, 0.2)'}}>
                 <h3>Nalezené karty (.VM2)</h3>
@@ -275,6 +305,7 @@ function App() {
               {ps2Inventory.length === 0 && !fetchingPS2 && (
                 <div style={{padding: 40, textAlign: 'center', opacity: 0.5}}>Nebyly nalezeny žádné virtuální paměťové karty.</div>
               )}
+              
               {ps2Inventory.map(vmc => (
                 <div key={vmc.fileName} style={{
                   background: 'rgba(255,255,255,0.03)',
@@ -297,11 +328,11 @@ function App() {
                     <div style={{flex: 1}}>
                       <h4 style={{fontSize: '1.4rem', marginBottom: 4}}>{vmc.fileName}</h4>
                       <p style={{fontSize: '0.8rem', color: 'var(--text-muted)'}}>
-                        Velikost: {(vmc.size / 1024 / 1024).toFixed(1)} MB | {vmc.games.length} her nalezeno
+                        Velikost: {(vmc.size / 1024 / 1024).toFixed(1)} MB | {vmc.games.length === 0 ? 'Parser nenašel hry (možno zálohovat pouze vcelku)' : `${vmc.games.length} her nalezeno`}
                       </p>
                     </div>
                     <div className="sync-actions">
-                      <button onClick={() => handleVMCSync(vmc)} style={{
+                      <button onClick={() => handleVMCSync(vmc)} disabled={vmc._loading} style={{
                         background: vmc.action === 'synced' ? 'rgba(0, 230, 118, 0.2)' : 'var(--glass)',
                         borderColor: vmc.action === 'synced' ? '#00e676' : 'var(--glass-border)'
                       }}>
@@ -313,19 +344,33 @@ function App() {
                   {vmc.games.length > 0 && (
                     <div style={{
                       display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
-                      gap: '16px',
-                      padding: '16px',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
+                      gap: '20px',
+                      padding: '20px',
                       background: 'rgba(0,0,0,0.2)',
                       borderRadius: '12px'
                     }}>
                       {vmc.games.map(game => (
-                        <div key={game.serial} style={{textAlign: 'center', cursor: 'pointer'}} title={game.serial}>
+                        <div key={game.serial} style={{
+                          textAlign: 'center', 
+                          padding: '12px',
+                          background: 'rgba(255,255,255,0.02)',
+                          borderRadius: '8px',
+                          transition: 'transform 0.2s',
+                          position: 'relative'
+                        }} className="ps2-game-card">
                            <img src={game.icon} alt={game.title} style={{
-                             width: '80px', height: '110px', objectFit: 'cover', borderRadius: '4px',
-                             boxShadow: '0 4px 10px rgba(0,0,0,0.4)', marginBottom: '8px'
+                             width: '100px', height: '140px', objectFit: 'cover', borderRadius: '4px',
+                             boxShadow: '0 4px 10px rgba(0,0,0,0.4)', marginBottom: '12px'
                            }} />
-                           <div style={{fontSize: '0.7rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>{game.title}</div>
+                           <div style={{fontSize: '0.75rem', fontWeight: 600, marginBottom: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>{game.title}</div>
+                           <button 
+                             onClick={() => handleDecompose(vmc.fileName, game.serial, game.serial)} 
+                             className="btn-psv-export"
+                             disabled={vmc._loading}
+                           >
+                             📤 EXPORT .PSV
+                           </button>
                         </div>
                       ))}
                     </div>
@@ -354,11 +399,31 @@ function App() {
                     <div className="game-icon" style={{background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>🎮</div>
                   )}
                   <div className="sync-info">
-                    <h4>{res.gameTitle || res.folderName} 
-                      {res.action === 'upload' && <span className="badge upload" style={{marginLeft: 10}}>K záloze</span>}
-                      {res.action === 'download' && <span className="badge download" style={{marginLeft: 10}}>Ke stažení</span>}
-                      {res.action === 'synced' && <span className="badge synced" style={{marginLeft: 10}}>Synchronizováno</span>}
+                    <h4 style={{display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px'}}>
+                      {res.gameTitle || res.folderName} 
+                      {res.action === 'upload' && <span className="badge upload">K záloze</span>}
+                      {res.action === 'download' && <span className="badge download">Ke stažení</span>}
+                      {res.action === 'synced' && <span className="badge synced">Synchronizováno</span>}
                     </h4>
+                    {res.subtitle && <div style={{fontSize: '0.9rem', color: 'rgba(255,255,255,0.7)', fontStyle: 'italic', marginBottom: '4px'}}>{res.subtitle}</div>}
+                    <div style={{fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', marginBottom: '8px', display: 'flex', gap: '10px'}}>
+                         <span>Složka: {res.folderName}</span>
+                         {res.size && <span>• Velikost: {(res.size / 1024).toFixed(0)} KB</span>}
+                    </div>
+                    {res.detail && (
+                      <div style={{
+                        fontSize: '0.8rem', 
+                        color: 'rgba(255,255,255,0.5)', 
+                        background: 'rgba(0,0,0,0.2)', 
+                        padding: '6px 10px', 
+                        borderRadius: '6px',
+                        marginBottom: '10px',
+                        whiteSpace: 'pre-line',
+                        lineHeight: '1.4'
+                      }}>
+                        {res.detail}
+                      </div>
+                    )}
                     <div className="sync-meta">
                       <span style={{ 
                         color: res.action === 'upload' ? 'var(--accent-blue)' : 'var(--text-muted)',
