@@ -1,27 +1,38 @@
 # 🕹️ Console Save Sync
 
-Moderní a bezpečný nástroj pro synchronizaci PS3 herních pozic mezi konzolí a cloudovým úložištěm Nextcloud.
+Modern and secure tool for synchronizing game saves between consoles (PS3/PS2) and Nextcloud cloud storage.
 
-## ✨ Vlastnosti
-- **FTP Konektivita**: Přímé spojení s PS3 (přes WebMAN/MultiMAN).
-- **WebDAV Integrace**: Automatické zálohování na tvůj vlastní Nextcloud.
-- **Inteligentní Delta Engine**: Detekuje změny a nahrává pouze ty savy, které se změnily.
-- **SFO Parser**: Zobrazuje skutečné názvy her namísto ID kódů (např. "The Last of Us" místo "BCES01584").
-- **Date Preservation**: Zachovává skutečné časy uložení z PS3 i v cloudu pomocí metadat.
-- **Moderní UI**: Tmavý glassmorphism vzhled s ikonkami her.
+## ✨ Features
 
-## 🚀 Jak začít
-1. Stáhni si nejnovější verzi z GitHub Releases.
-2. Nainstaluj aplikaci ve Windows.
-3. V nastavení zadej IP adresu tvé PS3 a údaje k Nextcloud WebDAV (včetně App hesla).
-4. Klikni na "Skenovat změny" a synchronizuj své savy!
+### 🎮 PlayStation 3
+- **FTP Connectivity**: Direct connection to PS3 via WebMAN/MultiMAN.
+- **Intelligent Delta Engine**: Detects changes and uploads/downloads only modified saves.
+- **SFO Parser**: Displays real game titles instead of IDs (e.g., "The Last of Us" instead of "BCES01584").
+- **Date Preservation**: Maintains original save timestamps using cloud metadata.
 
-## 🛠️ Vývoj
+### 📼 PlayStation 2 (PS2 Hub)
+- **Virtual Memory Card (.VM2) Support**: Parse and browse saves inside PS3 virtual memory cards.
+- **Automatic Game Identification**: Automatically identifies thousands of PS2 games using an integrated online database (`niemasd/GameDB-PS2`).
+- **Export to .PSV**: Generate PS3-compatible `.PSV` files for importing saves via XMB.
+- **Export to .PSU**: Generate `.PSU` containers compatible with physical PS2 hardware and `uLaunchELF`.
+- **Advanced MCFS Parser**: Full support for raw MCFS filesystems, including 528-byte ECC block aligned images.
+
+### ☁️ Cloud & UI
+- **WebDAV Integration**: Native support for Nextcloud backup.
+- **Modern UI**: Dark glassmorphism design with responsive game icons and progress tracking.
+
+## 🚀 Getting Started
+1. Download the latest version from GitHub Releases.
+2. Install the application on Windows.
+3. Configure your **PS3 IP Address** and **Nextcloud WebDAV** credentials in Settings.
+4. Scan for changes and start syncing!
+
+## 🛠️ Development
 ```bash
 npm install
-npm run dev
-npm run build-win # Pro vytvoření instalátoru
+npm run dev      # Start development mode
+npm run build-win # Build the Windows installer
 ```
 
 ---
-Vytvořeno s ❤️ pro fanoušky retro hraní.
+Created with ❤️ for retro gaming fans.

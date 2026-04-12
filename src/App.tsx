@@ -153,16 +153,27 @@ function App() {
 
   const handleDecompose = async (vmcFileName: string, gameSerial: string, folderName: string) => {
     try {
-      // Find the VMC and mark it as loading
       setPs2Inventory(prev => prev.map(v => v.fileName === vmcFileName ? { ...v, _loading: true } : v));
-      
       const result = await window.electronAPI.decomposeVMCtoPSV(vmcFileName, gameSerial, folderName);
-      
       if (result.success) {
-        // Find the game and maybe show a success toast?
         console.log('PSV export success');
       } else {
         setErrorMsg('Chyba při exportu PSV: ' + result.error);
+      }
+      setPs2Inventory(prev => prev.map(v => v.fileName === vmcFileName ? { ...v, _loading: false } : v));
+    } catch (e: any) {
+      setErrorMsg('Chyba: ' + e.message);
+    }
+  };
+
+  const handleDecomposePSU = async (vmcFileName: string, gameSerial: string, folderName: string) => {
+    try {
+      setPs2Inventory(prev => prev.map(v => v.fileName === vmcFileName ? { ...v, _loading: true } : v));
+      const result = await window.electronAPI.decomposeVMCtoPSU(vmcFileName, gameSerial, folderName);
+      if (result.success) {
+        console.log('PSU export success');
+      } else {
+        setErrorMsg('Chyba při exportu PSU: ' + result.error);
       }
       setPs2Inventory(prev => prev.map(v => v.fileName === vmcFileName ? { ...v, _loading: false } : v));
     } catch (e: any) {
@@ -364,13 +375,22 @@ function App() {
                              boxShadow: '0 4px 10px rgba(0,0,0,0.4)', marginBottom: '12px'
                            }} />
                            <div style={{fontSize: '0.75rem', fontWeight: 600, marginBottom: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>{game.title}</div>
-                           <button 
-                             onClick={() => handleDecompose(vmc.fileName, game.serial, game.serial)} 
-                             className="btn-psv-export"
-                             disabled={vmc._loading}
-                           >
-                             📤 EXPORT .PSV
-                           </button>
+                           <div style={{display: 'flex', flexDirection: 'column', gap: '6px'}}>
+                             <button 
+                               onClick={() => handleDecompose(vmc.fileName, game.serial, game.serial)} 
+                               className="btn-psv-export"
+                               disabled={vmc._loading}
+                             >
+                               📤 EXPORT .PSV
+                             </button>
+                             <button 
+                               onClick={() => handleDecomposePSU(vmc.fileName, game.serial, game.serial)} 
+                               className="btn-psu-export"
+                               disabled={vmc._loading}
+                             >
+                               💾 EXPORT .PSU
+                             </button>
+                           </div>
                         </div>
                       ))}
                     </div>

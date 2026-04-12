@@ -1,6 +1,4 @@
-/**
- * PS2 Game Database & Icon Provider
- */
+import { ps2DbManager } from './ps2DbManager.js';
 
 interface PS2Game {
     title: string;
@@ -21,22 +19,29 @@ const LOCAL_DB: Record<string, PS2Game> = {
 };
 
 export function identifyPS2Game(serial: string): PS2Game {
-    // Standardize serial (remove dots, hyphens etc if needed)
+    // 1. Standardize serial for LOCAL_DB search
     const key = serial.toUpperCase().replace(/_/, '-');
     
-    // Check local DB
+    // 2. Check hardcoded LOCAL_DB (fastest, supports icons)
     if (LOCAL_DB[key]) {
         return LOCAL_DB[key];
     }
 
-    // Try to guess title from serial if it has extra chars (e.g. BASLUS-21441GOW2)
-    // Most serials are 10-11 chars.
     const baseSerial = key.substring(0, 11);
     if (LOCAL_DB[baseSerial]) {
         return LOCAL_DB[baseSerial];
     }
 
-    // Fallback search or generic
+    // 3. Fallback to cached master database
+    const dynamicTitle = ps2DbManager.getTitle(serial);
+    if (dynamicTitle) {
+        return {
+            title: dynamicTitle,
+            icon: 'https://raw.githubusercontent.com/dagavi/mcardjs/master/assets/ps2_card.png'
+        };
+    }
+
+    // 4. Ultimate Fallback
     return {
         title: `Neznámá hra (${serial})`,
         icon: 'https://raw.githubusercontent.com/dagavi/mcardjs/master/assets/ps2_card.png'

@@ -5,6 +5,8 @@ import { parseVMC } from './vm2Parser.js';
 import { identifyPS2Game } from './ps2Db.js';
 import { VM2Extractor } from './vm2Extractor.js';
 import { PSVGenerator } from './psvGenerator.js';
+import { PSUGenerator } from './psuGenerator.js';
+import { ps2DbManager } from './ps2DbManager.js';
 
 export type DeltaAction = 'upload' | 'download' | 'synced';
 
@@ -42,6 +44,7 @@ export class SyncService {
         if (url && user && pass) {
             this.nc.connect(url, user, pass);
         }
+        await ps2DbManager.init();
     }
 
     async getAvailableProfiles(): Promise<{id: string, name: string}[]> {
@@ -277,6 +280,41 @@ export class SyncService {
             console.log(`[PSV Export] SUCCESS! Finished uploading ${gameSerial}.PSV`);
         } catch (err: any) {
             console.error(`[PSV Export] FAILED:`, err);
+            throw err;
+        } finally {
+            await this.ftp.disconnect();
+        }
+    }
+
+    async decomposeVMCGameToPSU(vmcFileName: string, gameSerial: string, folderName: string): Promise<void> {
+        const ip = store.get('ps3Ip');
+        if (!ip) throw new Error('No PS3 IP Address configured');
+        const persona = store.get('cloudPersona') as string || 'Unknown';
+        console.log(`[PSU Export] Starting export of ${gameSerial} from ${vmcFileName} (Persona: ${persona})`);
+        
+        await this.ftp.connect(ip);
+        try {
+            console.log(`[PSU Export] Downloading VMC: ${vmcFileName}...`);
+            const vmcBuffer = await this.ftp.downloadFileToBuffer(`/dev_hdd0/savedata/vmc/${vmcFileName}`);
+            
+            console.log(`[PSU Export] Extracting folder: ${folderName}...`);
+            const extractor = new VM2Extractor(vmcBuffer);
+            const folder = extractor.extractFolder(folderName);
+            if (!folder) {
+                console.error(`[PSU Export] Folder ${folderName} not found on VMC.`);
+                throw new Error(`Hra ${folderName} nebyla na kartě nalezena.`);
+            }
+
+            console.log(`[PSU Export] Extracted ${folder.files.length} files. Generating PSU...`);
+            const psuBuffer = PSUGenerator.generate(folder);
+
+            const cloudPath = `/PS2_Saves_PSU/${persona}/${gameSerial}.psu`;
+            console.log(`[PSU Export] Uploading to cloud: ${cloudPath}...`);
+            await this.nc.createDirRecursive(`/PS2_Saves_PSU/${persona}`);
+            await this.nc.uploadFileFromBuffer(cloudPath, psuBuffer);
+            console.log(`[PSU Export] SUCCESS! Finished uploading ${gameSerial}.psu`);
+        } catch (err: any) {
+            console.error(`[PSU Export] FAILED:`, err);
             throw err;
         } finally {
             await this.ftp.disconnect();

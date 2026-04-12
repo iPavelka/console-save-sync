@@ -240,6 +240,31 @@ body {
   cursor: not-allowed;
 }
 
+.btn-psu-export {
+  width: 100%;
+  padding: 8px;
+  background: rgba(0, 230, 118, 0.1);
+  border: 1px solid rgba(0, 230, 118, 0.3);
+  color: #fff;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.btn-psu-export:hover:not(:disabled) {
+  background: rgba(0, 230, 118, 0.3);
+  box-shadow: 0 0 15px rgba(0, 230, 118, 0.2);
+}
+
+.btn-psu-export:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* --- SYNC LIST --- */
 .sync-list {
   flex: 1;

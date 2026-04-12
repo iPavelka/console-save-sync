@@ -125,6 +125,17 @@ app.on('ready', () => {
     }
   });
 
+  ipcMain.handle('decompose-vmc-to-psu', async (event, vmcFileName, gameSerial, folderName) => {
+    try {
+      const sync = new SyncService();
+      await sync.init();
+      await sync.decomposeVMCGameToPSU(vmcFileName, gameSerial, folderName);
+      return { success: true };
+    } catch (e: any) {
+      return { success: false, error: e.message };
+    }
+  });
+
   ipcMain.handle('perform-sync', async (event, action, profileId, folderName) => {
     try {
       const sync = new SyncService();

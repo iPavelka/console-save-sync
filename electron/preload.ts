@@ -10,4 +10,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getPS2Inventory: () => ipcRenderer.invoke('get-ps2-inventory'),
   performVMCSync: (action: string, fileName: string) => ipcRenderer.invoke('perform-vmc-sync', action, fileName),
   decomposeVMCtoPSV: (vmcFileName: string, gameSerial: string, folderName: string) => ipcRenderer.invoke('decompose-vmc-to-psv', vmcFileName, gameSerial, folderName),
+  decomposeVMCtoPSU: (vmcFileName: string, gameSerial: string, folderName: string) => ipcRenderer.invoke('decompose-vmc-to-psu', vmcFileName, gameSerial, folderName),
 });
