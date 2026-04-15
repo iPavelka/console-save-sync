@@ -72,6 +72,15 @@ app.on('ready', () => {
     return true;
   });
 
+  ipcMain.handle('ping-console', async (event, ip) => {
+    try {
+      const sync = new SyncService();
+      return { success: true, online: await sync.pingConsole(ip) };
+    } catch (e: any) {
+      return { success: false, error: e.message };
+    }
+  });
+
   // Sync Logic Pipeline
   ipcMain.handle('scan-deltas', async () => {
     try {

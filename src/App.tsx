@@ -36,7 +36,16 @@ type PS2VMCInfo = {
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard')
-  const [settings, setSettings] = useState({ ps3Ip: '', ncUrl: '', ncUser: '', ncPass: '', ps3ProfileId: '', cloudPersona: '' });
+  const [settings, setSettings] = useState<any>({ 
+    ps3Ip: '', 
+    ncUrl: '', 
+    ncUser: '', 
+    ncPass: '', 
+    ps3ProfileId: '', 
+    cloudPersona: '',
+    consoles: [{ id: 'default', name: 'Main Console', ip: '' }],
+    activeConsoleId: 'default'
+  });
   const [loading, setLoading] = useState(false);
   const [availableProfiles, setAvailableProfiles] = useState<{id: string, name: string}[]>([]);
   const [fetchingProfiles, setFetchingProfiles] = useState(false);
@@ -44,6 +53,7 @@ function App() {
   const [ps2Inventory, setPs2Inventory] = useState<PS2VMCInfo[]>([]);
   const [fetchingPS2, setFetchingPS2] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [isPs3Online, setIsPs3Online] = useState<boolean | null>(null); // null = unknown, true = online, false = offline
 
   // Load settings on mount
   useEffect(() => {
@@ -54,7 +64,9 @@ function App() {
         ncUser: res.ncUser || '',
         ncPass: res.ncPass || '',
         ps3ProfileId: res.ps3ProfileId || '',
-        cloudPersona: res.cloudPersona || ''
+        cloudPersona: res.cloudPersona || '',
+        consoles: res.consoles || [{ id: 'default', name: 'Main Console', ip: res.ps3Ip || '' }],
+        activeConsoleId: res.activeConsoleId || 'default'
       };
       setSettings(loaded);
       
@@ -66,7 +78,9 @@ function App() {
   }, []);
 
   const fetchPS2Inventory = async () => {
-    if (!settings.ps3Ip) return;
+    const active = settings.consoles.find((c: any) => c.id === settings.activeConsoleId);
+    const currentIp = active ? active.ip : settings.ps3Ip;
+    if (!currentIp) return;
     setFetchingPS2(true);
     try {
       const result = await window.electronAPI.getPS2Inventory();
@@ -80,12 +94,28 @@ function App() {
   };
 
   const fetchProfiles = async () => {
-    if (!settings.ps3Ip) {
-      setErrorMsg('Nejdříve zadejte IP adresu konzole.');
+    const active = settings.consoles.find((c: any) => c.id === settings.activeConsoleId);
+    const currentIp = active ? active.ip : settings.ps3Ip;
+    
+    if (!currentIp) {
+      setErrorMsg('Nejdříve zadejte IP adresu aktivní konzole.');
       return;
     }
     setFetchingProfiles(true);
     setErrorMsg('');
+
+    try {
+      const pingResult = await window.electronAPI.pingConsole(currentIp);
+      if (pingResult.success) {
+        setIsPs3Online(pingResult.online);
+        if (!pingResult.online) {
+          setErrorMsg('Konzole PS3 neodpovídá. Je zapnutá a má aktivní FTP server?');
+          setFetchingProfiles(false);
+          return;
+        }
+      }
+    } catch (e) {}
+
     try {
       const result = await window.electronAPI.getPS3Profiles();
       if (result.success) {
@@ -111,13 +141,32 @@ function App() {
   }
 
   const handleScanWithSettings = async (currentSettings: any) => {
-    if (!currentSettings.ps3Ip || !currentSettings.ncUrl) {
-      setErrorMsg('Nastavte prosím IP adresu a Nextcloud v sekci Settings.');
+    const active = currentSettings.consoles.find((c: any) => c.id === currentSettings.activeConsoleId);
+    const currentIp = active ? active.ip : currentSettings.ps3Ip;
+    
+    if (!currentIp || !currentSettings.ncUrl) {
+      setErrorMsg('Nastavte prosím IP adresu aktivní konzole a Nextcloud v sekci Settings.');
       return;
     }
-    
+
     setLoading(true);
     setErrorMsg('');
+
+    // Pre-scan Ping
+    try {
+      const pingResult = await window.electronAPI.pingConsole(currentIp);
+      if (pingResult.success) {
+        setIsPs3Online(pingResult.online);
+        if (!pingResult.online) {
+          setErrorMsg('Konzole PS3 neodpovídá. Je zapnutá a má aktivní FTP server?');
+          setLoading(false);
+          return;
+        }
+      }
+    } catch (e) {
+      console.error('Ping failed', e);
+    }
+    
     try {
       const result = await window.electronAPI.scanDeltas();
       if (result.success) {
@@ -137,6 +186,49 @@ function App() {
   };
 
   const handleScan = () => handleScanWithSettings(settings);
+
+  const handleActiveConsoleChange = async (consoleId: string) => {
+    const updated = { ...settings, activeConsoleId: consoleId };
+    setSettings(updated);
+    setScanResults([]);
+    setPs2Inventory([]);
+    
+    // Crucial: Wait for settings to save so the backend knows the new active IP
+    await window.electronAPI.saveSettings(updated);
+    
+    // Auto-scan if the console has an IP
+    const target = updated.consoles.find((c: any) => c.id === consoleId);
+    if (target && target.ip) {
+      handleScanWithSettings(updated);
+      fetchPS2Inventory(); // Also refresh PS2 info for the new console
+    } else {
+      setIsPs3Online(null);
+    }
+  };
+
+  const addConsole = () => {
+    const newId = 'ps3-' + Date.now();
+    const updated = {
+      ...settings,
+      consoles: [...settings.consoles, { id: newId, name: 'Nová Konzole', ip: '' }]
+    };
+    setSettings(updated);
+  };
+
+  const updateConsole = (id: string, field: string, value: string) => {
+    const updatedConsoles = settings.consoles.map((c: any) => 
+      c.id === id ? { ...c, [field]: value } : c
+    );
+    setSettings({ ...settings, consoles: updatedConsoles });
+  };
+
+  const removeConsole = (id: string) => {
+    if (settings.consoles.length <= 1) return;
+    const updatedConsoles = settings.consoles.filter((c: any) => c.id !== id);
+    let newActiveId = settings.activeConsoleId;
+    if (newActiveId === id) newActiveId = updatedConsoles[0].id;
+    setSettings({ ...settings, consoles: updatedConsoles, activeConsoleId: newActiveId });
+  };
 
   const handleSyncItem = async (item: SyncItem) => {
     setScanResults(prev => prev.map(r => r.folderName === item.folderName ? { ...r, _loading: true } : r));
@@ -236,14 +328,38 @@ function App() {
            }}>PLAYSTATION 3</span>
            <span style={{fontWeight: 300, fontSize: '1rem', opacity: 0.6, marginLeft: 10, letterSpacing: '1px'}}>| Sync Engine</span>
         </div>
-        <div className="status-bar">
-           <div className="status-item">
-             <span className={`dot ${settings.ps3Ip ? 'online' : ''}`}></span>
-             PS3: {settings.ps3Ip || 'Offline'}
+        <div className="status-bar" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
+           <div style={{ display: 'flex', gap: '20px' }}>
+             <div className="status-item">
+               <span className={`dot ${isPs3Online === true ? 'online' : isPs3Online === false ? 'offline' : ''}`}></span>
+               PS3: {settings.consoles.find((c: any) => c.id === settings.activeConsoleId)?.ip || 'Offline'}
+             </div>
+             <div className="status-item">
+               <span className={`dot ${settings.ncUrl ? 'online' : ''}`}></span>
+               Cloud: {settings.ncUser || 'Disconnected'}
+             </div>
            </div>
-           <div className="status-item" style={{marginLeft: 20}}>
-             <span className={`dot ${settings.ncUrl ? 'online' : ''}`}></span>
-             Cloud: {settings.ncUser || 'Disconnected'}
+           
+           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.05)', padding: '4px 10px', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
+             <span style={{ fontSize: '0.65rem', opacity: 0.5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Aktivní:</span>
+             <select 
+               value={settings.activeConsoleId} 
+               onChange={(e) => handleActiveConsoleChange(e.target.value)}
+               style={{
+                 background: 'transparent',
+                 border: 'none',
+                 color: 'var(--accent-blue)',
+                 fontWeight: 700,
+                 fontSize: '0.8rem',
+                 fontFamily: 'inherit',
+                 outline: 'none',
+                 cursor: 'pointer'
+               }}
+             >
+               {settings.consoles.map((c: any) => (
+                 <option key={c.id} value={c.id} style={{background: '#1a1a2e', color: '#fff'}}>{c.name}</option>
+               ))}
+             </select>
            </div>
         </div>
       </header>
@@ -502,7 +618,15 @@ function App() {
         )}
 
         {activeTab === 'settings' && (
-          <div className="tab-content" style={{animation: 'slideIn 0.4s ease', maxWidth: '800px', width: '100%'}}>
+          <div className="tab-content" style={{
+            animation: 'slideIn 0.4s ease', 
+            maxWidth: '800px', 
+            width: '100%', 
+            overflowY: 'auto', 
+            flex: 1,
+            paddingBottom: '40px',
+            paddingRight: '10px'
+          }}>
             <h1 className="section-title">Konfigurace služeb</h1>
             
             <div className="settings-grid" style={{
@@ -516,8 +640,63 @@ function App() {
                   Konzole PS3
                 </h3>
                 <div className="input-field">
-                  <label>Místní IP Adresa</label>
-                  <input type="text" value={settings.ps3Ip} onChange={e => setSettings({...settings, ps3Ip: e.target.value})} placeholder="Např. 192.168.1.15"/>
+                  <label>Moje Konzole PS3</label>
+                  <div style={{display: 'flex', flexDirection: 'column', gap: '12px'}}>
+                    {settings.consoles.map((console: any) => (
+                      <div key={console.id} className={`console-entry ${settings.activeConsoleId === console.id ? 'active' : ''}`} style={{
+                        background: 'rgba(0,0,0,0.3)',
+                        border: `1px solid ${settings.activeConsoleId === console.id ? 'var(--accent-blue)' : 'var(--glass-border)'}`,
+                        borderRadius: '12px',
+                        padding: '12px',
+                        transition: 'all 0.2s ease'
+                      }}>
+                        <div style={{display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '12px'}}>
+                          <div className="input-field" style={{gap: '4px'}}>
+                            <label style={{fontSize: '0.6rem', opacity: 0.5}}>Název konzole</label>
+                            <input 
+                              type="text" 
+                              value={console.name} 
+                              placeholder="Např. Obývák"
+                              onChange={e => updateConsole(console.id, 'name', e.target.value)}
+                              style={{ width: '100%', padding: '10px', background: 'rgba(0,0,0,0.2)' }}
+                            />
+                          </div>
+                          <div className="input-field" style={{gap: '4px'}}>
+                            <label style={{fontSize: '0.6rem', opacity: 0.5}}>IP Adresa</label>
+                            <input 
+                              type="text" 
+                              value={console.ip} 
+                              placeholder="Např. 192.168.1.15"
+                              onChange={e => updateConsole(console.id, 'ip', e.target.value)}
+                              style={{ width: '100%', padding: '10px', background: 'rgba(0,0,0,0.2)' }}
+                            />
+                          </div>
+                        </div>
+                        <div style={{display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '12px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.03)'}}>
+                          {settings.activeConsoleId !== console.id ? (
+                            <button onClick={() => handleActiveConsoleChange(console.id)} style={{fontSize: '0.75rem', padding: '4px 10px', background: 'var(--accent-blue)', color: '#000', border: 'none', borderRadius: '4px', cursor: 'pointer'}}>Aktivovat</button>
+                          ) : (
+                            <span style={{fontSize: '0.75rem', color: 'var(--accent-blue)', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px'}}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                              Aktivní
+                            </span>
+                          )}
+                          <button onClick={() => removeConsole(console.id)} style={{fontSize: '0.75rem', padding: '4px 10px', background: 'rgba(255,51,102,0.2)', color: '#ff3366', border: '1px solid rgba(255,51,102,0.3)', borderRadius: '4px', cursor: 'pointer'}}>Smazat</button>
+                        </div>
+                      </div>
+                    ))}
+                    <button onClick={addConsole} style={{
+                      padding: '12px', 
+                      background: 'rgba(255,255,255,0.05)', 
+                      border: '1px dashed var(--glass-border)', 
+                      borderRadius: '12px', 
+                      color: 'rgba(255,255,255,0.6)', 
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease'
+                    }}>
+                      + Přidat další PS3
+                    </button>
+                  </div>
                 </div>
 
                 <div className="input-field">

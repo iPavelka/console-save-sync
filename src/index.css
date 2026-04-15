@@ -28,6 +28,24 @@ body {
   position: relative;
 }
 
+/* --- SCROLLBARS --- */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
 /* --- THE WAVE BACKGROUND --- */
 .background-container {
   position: fixed;
@@ -562,6 +580,11 @@ input:focus {
 .dot.online {
   background: #00e676;
   box-shadow: 0 0 8px #00e676;
+}
+
+.dot.offline {
+  background: #ff3366;
+  box-shadow: 0 0 8px #ff3366;
 }
 
 /* --- RESPONSIVENESS --- */

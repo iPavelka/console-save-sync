@@ -1,4 +1,5 @@
 import { PS3Connection, PS3SaveInfo } from './ftp.js';
+import net from 'node:net';
 import { NextcloudConnection, NCCloudSave } from './webdav.js';
 import store from './store.js';
 import { parseVMC } from './vm2Parser.js';
@@ -40,6 +41,40 @@ export class SyncService {
     ftp = new PS3Connection();
     nc = new NextcloudConnection();
 
+    private getActiveIp(): string {
+        const consoles = store.get('consoles') || [];
+        const activeId = store.get('activeConsoleId');
+        const active = consoles.find(c => c.id === activeId);
+        if (active) return active.ip;
+        // Fallback to legacy field
+        return store.get('ps3Ip');
+    }
+
+    async pingConsole(ip: string): Promise<boolean> {
+        return new Promise((resolve) => {
+            const socket = new net.Socket();
+            const timeout = 2000;
+            
+            socket.setTimeout(timeout);
+            socket.on('connect', () => {
+                socket.destroy();
+                resolve(true);
+            });
+            
+            socket.on('timeout', () => {
+                socket.destroy();
+                resolve(false);
+            });
+            
+            socket.on('error', () => {
+                socket.destroy();
+                resolve(false);
+            });
+            
+            socket.connect(21, ip);
+        });
+    }
+
     async init() {
         const url = store.get('ncUrl');
         const user = store.get('ncUser');
@@ -51,7 +86,7 @@ export class SyncService {
     }
 
     async getAvailableProfiles(): Promise<{id: string, name: string}[]> {
-        const ip = store.get('ps3Ip');
+        const ip = this.getActiveIp();
         if (!ip) throw new Error('No PS3 IP Address configured');
         await this.ftp.connect(ip);
         const profiles = await this.ftp.getProfiles();
@@ -65,7 +100,7 @@ export class SyncService {
     }
 
     async scanDeltas(): Promise<SyncItem[]> {
-        const ip = store.get('ps3Ip');
+        const ip = this.getActiveIp();
         if (!ip) throw new Error('No PS3 IP Address configured');
         await this.ftp.connect(ip);
         const profiles = await this.ftp.getProfiles();
@@ -99,9 +134,10 @@ export class SyncService {
                 const meta = JSON.parse(metaBuf.toString('utf-8'));
                 if (meta.mtime) trueDate = new Date(meta.mtime);
                 cloud.gameTitle = meta.gameTitle || cloud.gameTitle;
-                cloud.subtitle = meta.subtitle;
-                cloud.ncDetail = meta.detail;
+                cloud.subtitle = meta.subtitle || cloud.subtitle;
+                cloud.ncDetail = meta.detail || meta.ncDetail || cloud.ncDetail;
             } catch(e) { 
+                // Silently ignore if meta doesn't exist
             }
 
             // Fallback: If we still don't have details (missing meta or old meta), try parsing PARAM.SFO
@@ -109,13 +145,13 @@ export class SyncService {
                 try {
                     const sfoBuf = await this.nc.downloadFileToBuffer(`/PS3_Saves/${cloudPersona}/${cloud.folderName}/PARAM.SFO`);
                     const sfoData = parseSFO(sfoBuf);
-                    if (sfoData['TITLE']) cloud.gameTitle = String(sfoData['TITLE']);
-                    if (sfoData['SUB_TITLE']) cloud.subtitle = String(sfoData['SUB_TITLE']);
+                    if (sfoData['TITLE'] && !cloud.gameTitle) cloud.gameTitle = String(sfoData['TITLE']);
+                    if (sfoData['SUB_TITLE'] && !cloud.subtitle) cloud.subtitle = String(sfoData['SUB_TITLE']);
                     if (sfoData['DETAIL']) {
-                        cloud.detail = String(sfoData['DETAIL']);
                         cloud.ncDetail = String(sfoData['DETAIL']);
                     }
                 } catch (e2: any) {
+                    // console.error(`Failed to fetch cloud PARAM.SFO for ${cloud.folderName}`, e2.message);
                 }
             }
             const existing = deltas.get(cloud.folderName);
@@ -151,7 +187,7 @@ export class SyncService {
     }
 
     async getPS2Inventory(): Promise<PS2VMCInfo[]> {
-        const ip = store.get('ps3Ip');
+        const ip = this.getActiveIp();
         if (!ip) throw new Error('No PS3 IP Address configured');
         await this.ftp.connect(ip);
         const persona = store.get('cloudPersona') as string || 'Unknown';
@@ -203,7 +239,7 @@ export class SyncService {
 
     async performSync(action: DeltaAction, profileId: string, folderName: string): Promise<void> {
         if (action === 'synced') return;
-        const ip = store.get('ps3Ip');
+        const ip = this.getActiveIp();
         if (!ip) throw new Error('No PS3 IP Address configured');
         await this.ftp.connect(ip);
         try {
@@ -247,7 +283,7 @@ export class SyncService {
     }
 
     async performVMCSync(action: DeltaAction, fileName: string): Promise<void> {
-        const ip = store.get('ps3Ip');
+        const ip = this.getActiveIp();
         if (!ip) throw new Error('No PS3 IP Address configured');
         const persona = store.get('cloudPersona') as string || 'Unknown';
         await this.ftp.connect(ip);
@@ -274,7 +310,7 @@ export class SyncService {
     }
 
     async decomposeVMCGameToPSV(vmcFileName: string, gameSerial: string, folderName: string): Promise<void> {
-        const ip = store.get('ps3Ip');
+        const ip = this.getActiveIp();
         if (!ip) throw new Error('No PS3 IP Address configured');
         const persona = store.get('cloudPersona') as string || 'Unknown';
         console.log(`[PSV Export] Starting export of ${gameSerial} from ${vmcFileName} (Persona: ${persona})`);
@@ -309,7 +345,7 @@ export class SyncService {
     }
 
     async decomposeVMCGameToPSU(vmcFileName: string, gameSerial: string, folderName: string): Promise<void> {
-        const ip = store.get('ps3Ip');
+        const ip = this.getActiveIp();
         if (!ip) throw new Error('No PS3 IP Address configured');
         const persona = store.get('cloudPersona') as string || 'Unknown';
         console.log(`[PSU Export] Starting export of ${gameSerial} from ${vmcFileName} (Persona: ${persona})`);
