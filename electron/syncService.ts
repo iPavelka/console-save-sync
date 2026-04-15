@@ -7,6 +7,7 @@ import { VM2Extractor } from './vm2Extractor.js';
 import { PSVGenerator } from './psvGenerator.js';
 import { PSUGenerator } from './psuGenerator.js';
 import { ps2DbManager } from './ps2DbManager.js';
+import { parseSFO } from './sfoParser.js';
 
 export type DeltaAction = 'upload' | 'download' | 'synced';
 
@@ -15,6 +16,8 @@ export type SyncItem = {
     gameTitle: string | null;
     subtitle?: string;
     detail?: string;
+    ps3Detail?: string;
+    ncDetail?: string;
     action: DeltaAction;
     ps3Date: Date | null;
     ncDate: Date | null;
@@ -80,6 +83,7 @@ export class SyncService {
                 gameTitle: local.gameTitle,
                 subtitle: local.subtitle,
                 detail: local.detail,
+                ps3Detail: local.detail,
                 action: 'upload', 
                 ps3Date: local.dateModified,
                 ncDate: null,
@@ -96,11 +100,28 @@ export class SyncService {
                 if (meta.mtime) trueDate = new Date(meta.mtime);
                 cloud.gameTitle = meta.gameTitle || cloud.gameTitle;
                 cloud.subtitle = meta.subtitle;
-                cloud.detail = meta.detail;
-            } catch(e) { }
+                cloud.ncDetail = meta.detail;
+            } catch(e) { 
+            }
+
+            // Fallback: If we still don't have details (missing meta or old meta), try parsing PARAM.SFO
+            if (!cloud.ncDetail) {
+                try {
+                    const sfoBuf = await this.nc.downloadFileToBuffer(`/PS3_Saves/${cloudPersona}/${cloud.folderName}/PARAM.SFO`);
+                    const sfoData = parseSFO(sfoBuf);
+                    if (sfoData['TITLE']) cloud.gameTitle = String(sfoData['TITLE']);
+                    if (sfoData['SUB_TITLE']) cloud.subtitle = String(sfoData['SUB_TITLE']);
+                    if (sfoData['DETAIL']) {
+                        cloud.detail = String(sfoData['DETAIL']);
+                        cloud.ncDetail = String(sfoData['DETAIL']);
+                    }
+                } catch (e2: any) {
+                }
+            }
             const existing = deltas.get(cloud.folderName);
             if (existing && existing.ps3Date) {
                 existing.ncDate = trueDate;
+                existing.ncDetail = cloud.ncDetail;
                 const diff = Math.abs(trueDate.getTime() - existing.ps3Date.getTime());
                 if (diff < 1000 * 60) existing.action = 'synced';
                 else if (trueDate.getTime() > existing.ps3Date.getTime()) existing.action = 'download';
@@ -116,6 +137,7 @@ export class SyncService {
                     gameTitle: cloud.gameTitle || 'Neznámá hra (v Cloudu)',
                     subtitle: cloud.subtitle,
                     detail: cloud.detail,
+                    ncDetail: cloud.ncDetail,
                     action: 'download',
                     ps3Date: null,
                     ncDate: trueDate,

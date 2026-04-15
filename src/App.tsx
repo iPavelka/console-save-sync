@@ -16,6 +16,8 @@ type SyncItem = {
     ps3Date: Date | null;
     ncDate: Date | null;
     size?: number;
+    ps3Detail?: string;
+    ncDetail?: string;
     profileId: string;
     iconBase64?: string;
     _loading?: boolean;
@@ -410,96 +412,88 @@ function App() {
               )}
               {scanResults.map(res => (
                 <div className="sync-item" key={res.folderName} style={{
-                  borderColor: res.action === 'synced' ? 'rgba(0, 230, 118, 0.2)' : 'transparent',
-                  background: res.action === 'synced' ? 'rgba(0, 230, 118, 0.05)' : 'rgba(255, 255, 255, 0.02)'
+                  background: res.action === 'synced' ? 'rgba(0, 230, 118, 0.05)' : 'rgba(255, 255, 255, 0.03)'
                 }}>
-                  {res.iconBase64 ? (
-                    <img src={res.iconBase64} alt="icon" className="game-icon" />
-                  ) : (
-                    <div className="game-icon" style={{background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>🎮</div>
-                  )}
-                  <div className="sync-info">
-                    <h4 style={{display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px'}}>
-                      {res.gameTitle || res.folderName} 
-                      {res.action === 'upload' && <span className="badge upload">K záloze</span>}
-                      {res.action === 'download' && <span className="badge download">Ke stažení</span>}
-                      {res.action === 'synced' && <span className="badge synced">Synchronizováno</span>}
-                    </h4>
-                    {res.subtitle && <div style={{fontSize: '0.9rem', color: 'rgba(255,255,255,0.7)', fontStyle: 'italic', marginBottom: '4px'}}>{res.subtitle}</div>}
-                    <div style={{fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', marginBottom: '8px', display: 'flex', gap: '10px'}}>
-                         <span>Složka: {res.folderName}</span>
-                         {res.size && <span>• Velikost: {(res.size / 1024).toFixed(0)} KB</span>}
-                    </div>
-                    {res.detail && (
-                      <div style={{
-                        fontSize: '0.8rem', 
-                        color: 'rgba(255,255,255,0.5)', 
-                        background: 'rgba(0,0,0,0.2)', 
-                        padding: '6px 10px', 
-                        borderRadius: '6px',
-                        marginBottom: '10px',
-                        whiteSpace: 'pre-line',
-                        lineHeight: '1.4'
-                      }}>
-                        {res.detail}
-                      </div>
+                  <div className="sync-header">
+                    {res.iconBase64 ? (
+                      <img src={res.iconBase64} alt="icon" className="game-icon" />
+                    ) : (
+                      <div className="game-icon" style={{background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>🎮</div>
                     )}
-                    <div className="sync-meta">
-                      <span style={{ 
-                        color: res.action === 'upload' ? 'var(--accent-blue)' : 'var(--text-muted)',
-                        fontWeight: res.action === 'upload' ? '600' : '400',
-                        textShadow: res.action === 'upload' ? '0 0 10px rgba(0, 210, 255, 0.3)' : 'none',
-                        display: 'flex',
-                        alignItems: 'center'
-                      }}>
-                        <div style={{
-                          background: 'white', // Bright background for the black logo!
-                          border: `1px solid ${res.action === 'upload' ? 'var(--accent-blue)' : 'rgba(255, 255, 255, 0.2)'}`,
-                          borderRadius: '8px',
-                          width: '40px',
-                          height: '30px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          marginRight: '12px',
-                          transition: 'all 0.3s ease',
-                          boxShadow: res.action === 'upload' ? '0 0 15px rgba(0, 210, 255, 0.3)' : 'none'
-                        }}>
-                          <img src="/ps3.png" alt="PS3" style={{width: 24, height: 24, objectFit: 'contain'}} />
-                        </div>
-                        PS3: {res.ps3Date ? new Date(res.ps3Date).toLocaleDateString() + ' ' + new Date(res.ps3Date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '-'}
-                      </span>
-                      <span style={{ 
-                        color: res.action === 'download' ? '#c499ff' : 'var(--text-muted)',
-                        fontWeight: res.action === 'download' ? '600' : '400',
-                        textShadow: res.action === 'download' ? '0 0 10px rgba(112, 0, 255, 0.3)' : 'none',
-                        display: 'flex',
-                        alignItems: 'center',
-                        marginLeft: '16px'
-                      }}>
-                        <div style={{
-                          background: res.action === 'download' ? 'rgba(112, 0, 255, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-                          border: `1px solid ${res.action === 'download' ? '#c499ff' : 'rgba(255, 255, 255, 0.1)'}`,
-                          borderRadius: '8px',
-                          width: '40px',
-                          height: '30px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          marginRight: '12px',
-                          transition: 'all 0.3s ease',
-                          boxShadow: res.action === 'download' ? '0 0 15px rgba(112, 0, 255, 0.2)' : 'none'
-                        }}>
-                          ☁️
-                        </div>
-                        Cloud: {res.ncDate ? new Date(res.ncDate).toLocaleDateString() + ' ' + new Date(res.ncDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '-'}
-                      </span>
-                      <span style={{opacity: 0.3, marginLeft: 'auto'}}>{res.folderName}</span>
+                    <div className="sync-info">
+                      <h4 style={{display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px'}}>
+                        {res.gameTitle || res.folderName} 
+                        {res.action === 'upload' && <span className="badge upload">K ZÁLOZE</span>}
+                        {res.action === 'download' && <span className="badge download">KE STAŽENÍ</span>}
+                        {res.action === 'synced' && <span className="badge synced">SYNCHRONIZOVÁNO</span>}
+                      </h4>
+                      {res.subtitle && <div style={{fontSize: '0.9rem', color: 'rgba(255,255,255,0.7)', fontStyle: 'italic'}}>{res.subtitle}</div>}
                     </div>
                   </div>
-                  <div className="sync-actions">
-                    {res.action === 'upload' && <button onClick={() => handleSyncItem(res)}>{res._loading ? 'Přenáším...' : 'Nahrát'}</button>}
-                    {res.action === 'download' && <button onClick={() => handleSyncItem(res)}>{res._loading ? 'Přenáším...' : 'Stáhnout'}</button>}
+
+                  <div className="sync-meta">
+                    <div className="sync-meta-grid">
+                      {/* LOCAL COLUMN */}
+                      <div className={`sync-column ps3 ${res.action === 'upload' ? 'active-source' : ''} ${res.ps3Date && res.ncDate && new Date(res.ps3Date) > new Date(res.ncDate) ? 'newer' : ''}`}>
+                        <div className="col-header">
+                          <div className="col-icon" style={{ background: '#fff' }}>
+                            <img src="/ps3.png" alt="PS3" style={{width: 20, height: 20, objectFit: 'contain'}} />
+                          </div>
+                          <div className="col-data">
+                            <span className="col-label">Konzole PS3</span>
+                            <span className="col-time">
+                              {res.ps3Date ? new Date(res.ps3Date).toLocaleDateString() + ' ' + new Date(res.ps3Date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Žádná data'}
+                            </span>
+                          </div>
+                        </div>
+                        {res.ps3Detail && (
+                          <div className="col-detail">
+                            {res.ps3Detail}
+                          </div>
+                        )}
+                        {res.ps3Date && res.ncDate && new Date(res.ps3Date) > new Date(res.ncDate) && (
+                          <div className="status-indicator is-newer">Novější</div>
+                        )}
+                        {res.ps3Date && res.ncDate && new Date(res.ps3Date) < new Date(res.ncDate) && (
+                          <div className="status-indicator is-older">Starší</div>
+                        )}
+                      </div>
+
+                      {/* CLOUD COLUMN */}
+                      <div className={`sync-column cloud ${res.action === 'download' ? 'active-source' : ''} ${res.ps3Date && res.ncDate && new Date(res.ncDate) > new Date(res.ps3Date) ? 'newer' : ''}`}>
+                        <div className="col-header">
+                          <div className="col-icon" style={{ background: 'rgba(112, 0, 255, 0.2)', border: '1px solid rgba(112, 0, 255, 0.2)' }}>
+                            ☁️
+                          </div>
+                          <div className="col-data">
+                            <span className="col-label">Cloudové úložiště</span>
+                            <span className="col-time">
+                              {res.ncDate ? new Date(res.ncDate).toLocaleDateString() + ' ' + new Date(res.ncDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Žádná data'}
+                            </span>
+                          </div>
+                        </div>
+                        {res.ncDetail && (
+                          <div className="col-detail">
+                            {res.ncDetail}
+                          </div>
+                        )}
+                        {res.ps3Date && res.ncDate && new Date(res.ncDate) > new Date(res.ps3Date) && (
+                          <div className="status-indicator is-newer">Novější</div>
+                        )}
+                        {res.ps3Date && res.ncDate && new Date(res.ncDate) < new Date(res.ps3Date) && (
+                          <div className="status-indicator is-older">Starší</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="sync-footer">
+                    <div className="folder-label">Složka: {res.folderName}</div>
+                    <div className="sync-actions">
+                      {res.action === 'upload' && <button onClick={() => handleSyncItem(res)} disabled={res._loading}>{res._loading ? 'Přenáším...' : 'Nahrát do Cloudu'}</button>}
+                      {res.action === 'download' && <button onClick={() => handleSyncItem(res)} disabled={res._loading}>{res._loading ? 'Přenáším...' : 'Stáhnout do PS3'}</button>}
+                      {res.action === 'synced' && <button disabled style={{ opacity: 0.3, background: 'rgba(255,255,255,0.1)', color: '#fff', boxShadow: 'none' }}>Synchronizováno</button>}
+                    </div>
                   </div>
                 </div>
               ))}
